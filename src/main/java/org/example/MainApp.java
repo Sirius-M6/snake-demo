@@ -1,6 +1,7 @@
 package org.example;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -19,9 +20,9 @@ public class MainApp extends Application {
         Button startButton = new Button("启动");
         startButton.setOnAction(e -> label.setText("游戏已启动！"));
 
-        // 关闭按钮：点击后关闭整个窗口
+        // 关闭按钮：点击后结束整个程序
         Button closeButton = new Button("关闭");
-        closeButton.setOnAction(e -> stage.close());
+        closeButton.setOnAction(e -> Platform.exit());
 
         // 两个按钮水平并排
         HBox buttonBox = new HBox(20, startButton, closeButton);
