@@ -7,6 +7,8 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.StrokeLineCap;
 import model.Bean;
 import model.BeanType;
 import model.GameOverReason;
@@ -115,26 +117,66 @@ public class GameView extends BorderPane implements GameEvents {
         }
     }
 
-    /** 层 4:豆(圆形;半径随类别区分:小/毒偏小,大/金偏大,大毒最大) */
+    /**
+     * 层 4:豆(五件套:形状+颜色双通道——小豆红点 / 大豆橙大圆 / 金豆金星 / 毒豆紫圆×纹 / 大毒豆暗紫大圆×纹;
+     * 叉线色取底色 darker(),不另设常量,随豆色联动)
+     */
     private void drawBeans(GraphicsContext g, Palette p, List<Bean> beans) {
-        double cell = BoardConfig.CELL_SIZE_PX;
         for (Bean b : beans) {
-            double r = beanRadius(b.type);
-            double cx = (b.pos.col + 0.5) * cell;
-            double cy = (b.pos.row + 0.5) * cell;
-            g.setFill(p.beanColor(b.type));
-            g.fillOval(cx - r, cy - r, r * 2, r * 2);
+            drawBean(g, p, b);
         }
     }
 
-    /** 豆半径(px):SMALL 5 / POISON 5.5 / BIG·GOLD 7 / BIG_POISON 8 */
-    private double beanRadius(BeanType type) {
-        return switch (type) {
-            case SMALL -> 5;
-            case BIG, GOLD -> 7;
-            case POISON -> 5.5;
-            case BIG_POISON -> 8;
-        };
+    /** 单颗豆:按类别分派绘制 */
+    private void drawBean(GraphicsContext g, Palette p, Bean b) {
+        double cell = BoardConfig.CELL_SIZE_PX;
+        double cx = (b.pos.col + 0.5) * cell;
+        double cy = (b.pos.row + 0.5) * cell;
+        switch (b.type) {
+            case SMALL -> fillCircle(g, cx, cy, 5, p.beanColor(BeanType.SMALL));
+            case BIG -> fillCircle(g, cx, cy, 7, p.beanColor(BeanType.BIG));
+            case GOLD -> fillStar(g, cx, cy, 8, p.beanColor(BeanType.GOLD));
+            case POISON -> {
+                fillCircle(g, cx, cy, 6, p.beanColor(BeanType.POISON));
+                drawCross(g, cx, cy, 6, p.beanColor(BeanType.POISON).darker(), 2.2);
+            }
+            case BIG_POISON -> {
+                fillCircle(g, cx, cy, 8, p.beanColor(BeanType.BIG_POISON));
+                drawCross(g, cx, cy, 8, p.beanColor(BeanType.BIG_POISON).darker(), 3);
+            }
+        }
+    }
+
+    /** 实心圆(中心 + 半径) */
+    private void fillCircle(GraphicsContext g, double cx, double cy, double r, Color color) {
+        g.setFill(color);
+        g.fillOval(cx - r, cy - r, r * 2, r * 2);
+    }
+
+    /** ×纹:两条对角斜线,端点落在半径 0.75 处,圆润线帽 */
+    private void drawCross(GraphicsContext g, double cx, double cy, double r, Color color, double lineWidth) {
+        double len = r * 0.75;
+        g.setStroke(color);
+        g.setLineWidth(lineWidth);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.strokeLine(cx - len, cy - len, cx + len, cy + len);
+        g.strokeLine(cx - len, cy + len, cx + len, cy - len);
+    }
+
+    /** 金星:标准五角星(10 顶点内外交替,起于正上方;内半径 = 外半径 × sin18°/sin54° ≈ 0.382) */
+    private void fillStar(GraphicsContext g, double cx, double cy, double outerR, Color color) {
+        double innerR = outerR * 0.382;
+        int points = 10;
+        double[] xs = new double[points];
+        double[] ys = new double[points];
+        for (int i = 0; i < points; i++) {
+            double angle = Math.toRadians(-90 + i * 360.0 / points);
+            double r = (i % 2 == 0) ? outerR : innerR;
+            xs[i] = cx + r * Math.cos(angle);
+            ys[i] = cy + r * Math.sin(angle);
+        }
+        g.setFill(color);
+        g.fillPolygon(xs, ys, points);
     }
 
     // ===== 事件转发(view 实现,controller 触发;联动特效/弹层为后续任务,现阶段空实现) =====
