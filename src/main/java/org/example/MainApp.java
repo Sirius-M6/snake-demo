@@ -1,43 +1,34 @@
 package org.example;
 
 import javafx.application.Application;
-import javafx.application.Platform;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+/**
+ * 程序入口;只做装配与键位采集转发,不含规则(全体维护,PM 协调装配)
+ */
 public class MainApp extends Application {
 
+    /** JavaFX 启动入口 */
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    /**
+     * 依赖装配根与场景装载:
+     * SystemClock + 各 config + 四 Controller(持久化注入 Store 的 LocalStore 实现;
+     * InMemoryStore 仅测试用,不进装配)→ PageRouter 显示主界面;
+     * 方向键/空格/R/Esc 全局键位采集 → 纯数据转 controller
+     */
     @Override
     public void start(Stage stage) {
-        Label label = new Label("Hello, JavaFX！");
-
-        // 启动按钮
-        Button startButton = new Button("启动");
-        startButton.setOnAction(e -> label.setText("游戏已启动！"));
-
-        // 关闭按钮：点击后结束整个程序
-        Button closeButton = new Button("关闭");
-        closeButton.setOnAction(e -> Platform.exit());
-
-        // 两个按钮水平并排
-        HBox buttonBox = new HBox(20, startButton, closeButton);
-        buttonBox.setAlignment(Pos.CENTER);
-
-        VBox root = new VBox(20, label, buttonBox);
-        root.setAlignment(Pos.CENTER);
-
-        Scene scene = new Scene(root, 400, 300);
-        stage.setTitle("我的第一个 JavaFX 程序");
-        stage.setScene(scene);
+        // 待填充:依赖装配、场景装载与全局键位采集
+        stage.setTitle("贪吃蛇");
         stage.show();
     }
 
-    public static void main(String[] args) {
-        launch(args);
+    /** 应用退出钩子(如需清理) */
+    @Override
+    public void stop() {
+        // 待填充
     }
 }
