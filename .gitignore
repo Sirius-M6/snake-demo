@@ -5,16 +5,23 @@ target/
 .kotlin
 
 ### IntelliJ IDEA ###
-.idea/modules.xml
-.idea/jarRepositories.xml
-.idea/compiler.xml
-.idea/encodings.xml
-.idea/misc.xml
-.idea/vcs.xml
+# 可共享的项目配置(misc/compiler/encodings/vcs 等)应入库;以下仅忽略机器相关/会话文件
 .idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/dictionaries
+.idea/shelf/
+.idea/httpRequests/
+.idea/queries/
+.idea/dataSources/
+.idea/dataSources.local.xml
+.idea/dynamic.xml
+.idea/jarRepositories.xml
 .idea/libraries/
-*.iws
+.idea/modules.xml
+# 模块描述文件由 IDEA 根据 Maven 自动导入重建
 *.iml
+*.iws
 *.ipr
 
 ### Eclipse ###
@@ -41,9 +48,6 @@ build/
 
 ### Mac OS ###
 .DS_Store
-
-### 本地 AI 助手聊天记录 ###
-.rikki/
 
 ### 本地 AI 助手聊天记录 ###
 .rikki/
