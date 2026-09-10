@@ -128,6 +128,24 @@ class SaveControllerTest {
         assertEquals(0, controller.highScoreOf("snow")); // 其他地图不受影响
     }
 
+    @Test
+    @DisplayName("isFreshRecord:标记最近一次结算的新纪录,未破清除,迁移到最新图")
+    void freshRecordTracksLatestResult() {
+        assertFalse(controller.isFreshRecord("pipe")); // 初始:无标记
+
+        assertTrue(controller.recordScore("pipe", 10));
+        assertTrue(controller.isFreshRecord("pipe")); // 刚破纪录:点亮
+
+        assertTrue(controller.recordScore("snow", 5));
+        assertTrue(controller.isFreshRecord("snow"));
+        assertFalse(controller.isFreshRecord("pipe")); // 标记迁移到最近破纪录的图
+
+        assertFalse(controller.recordScore("snow", 2));
+        assertFalse(controller.isFreshRecord("snow")); // 最近一局未破:标记清除
+
+        assertFalse(controller.isFreshRecord(null)); // null 安全
+    }
+
     // ===== 辅助 =====
 
     /** 存档文件路径(与 SaveController 内部一致,经 SaveConfig 拼装) */

@@ -111,16 +111,18 @@ public class TextCodec {
         return saveData.mapId == null ? null : saveData;
     }
 
-    /** 最高分表 → 文本(每行 "mapId=score") */
+    /** 最高分表 → 文本(首行注释说明;每行 "mapId=score") */
     public String encodeScores(HighScoreTable table) {
         StringBuilder sb = new StringBuilder();
+        // 首行注释:便于直接打开文件查看;此行不含 "=",解码端自动跳过
+        sb.append("# 贪吃蛇 历史最高分记录(按地图,仅保留最高,不分难度;不记录每局明细)\n");
         for (Map.Entry<String, Integer> e : table.allScores().entrySet()) {
             sb.append(e.getKey()).append('=').append(e.getValue()).append('\n');
         }
         return sb.toString();
     }
 
-    /** 文本 → 最高分表(空文本返回空表;损坏行跳过,不让单行错误破坏整表) */
+    /** 文本 → 最高分表(空文本返回空表;注释行/损坏行跳过,不让单行错误破坏整表) */
     public HighScoreTable decodeScores(String text) {
         HighScoreTable table = new HighScoreTable();
         if (text == null || text.isBlank()) {

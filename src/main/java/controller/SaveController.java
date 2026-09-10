@@ -27,6 +27,9 @@ public class SaveController {
     /** 文本编解码 */
     private final TextCodec codec = new TextCodec();
 
+    /** 最近一次结算产生新纪录的图 id(记录页 [NEW] 标记依据;内存态,不持久化,重启即清) */
+    private String freshRecordMapId;
+
     /** 构造:注入 Store(生产 LocalStore / 测试 InMemoryStore) */
     public SaveController(Store store) {
         this.store = store;
@@ -125,14 +128,22 @@ public class SaveController {
         return codec.decodeScores(text.get()).scoreOf(mapId);
     }
 
-    /** 高于现纪录则写入并返回 true(结算画面"新纪录"依据) */
+    /** 高于现纪录则写入并返回 true(结算画面"新纪录"依据);同时刷新记录页 [NEW] 标记 */
     public boolean recordScore(String mapId, int score) {
         String path = SaveConfig.SAVE_DIR + File.separator + SaveConfig.HIGH_SCORE_FILE;
         HighScoreTable table = codec.decodeScores(store.loadText(path).orElse(null));
         boolean newRecord = table.putIfHigher(mapId, score);
+        // [NEW] 语义:最近一次结算破纪录 -> 标记该图;未破 -> 清除标记(其余图不再标)
+        freshRecordMapId = newRecord ? mapId : null;
         if (newRecord) {
             store.saveText(path, codec.encodeScores(table));
         }
         return newRecord;
+    }
+
+    /** 记录页 [NEW] 标记:该图是否为最近一次结算产生的新纪录(内存态,重启后不显示);
+     *  骨架补充(原因:记录页需"最近新纪录"展示依据,骨架未声明;须在《详细设计说明书》变更记录登记) */
+    public boolean isFreshRecord(String mapId) {
+        return mapId != null && mapId.equals(freshRecordMapId);
     }
 }

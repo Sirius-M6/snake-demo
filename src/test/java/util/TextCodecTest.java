@@ -131,4 +131,29 @@ class TextCodecTest {
         assertEquals(34, table.scoreOf("pipe"));
         assertEquals(0, table.scoreOf("snow"));
     }
+
+    @Test
+    @DisplayName("注释行跳过:无等号与含等号说明均不产生记录")
+    void commentLinesAreSkipped() {
+        HighScoreTable table = codec.decodeScores(
+                "# 贪吃蛇 历史最高分记录(仅保留最高)\npipe=34\n# 格式示例:mapId=最高分\nsnow=12\n");
+
+        assertEquals(34, table.scoreOf("pipe"));
+        assertEquals(12, table.scoreOf("snow"));
+        assertEquals(2, table.allScores().size()); // 注释行不产生多余记录
+    }
+
+    @Test
+    @DisplayName("记录文件带注释头,round-trip 完整且头行不污染记录")
+    void scoresFileHasHeaderComment() {
+        HighScoreTable origin = new HighScoreTable();
+        origin.putIfHigher("pipe", 34);
+
+        String text = codec.encodeScores(origin);
+        assertTrue(text.startsWith("#"), "首行应为说明性注释");
+
+        HighScoreTable back = codec.decodeScores(text);
+        assertEquals(34, back.scoreOf("pipe"));
+        assertEquals(1, back.allScores().size());
+    }
 }
