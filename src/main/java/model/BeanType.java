@@ -2,6 +2,7 @@ package model;
 
 /**
  * 豆类别枚举(小/大/金/毒/大毒);分值在 config,此处只判类别
+ * v1.7:小豆子独立生成;非小豆子按 BR-29 概率抽取(正面池/负面池)
  */
 public enum BeanType {
 
@@ -16,23 +17,23 @@ public enum BeanType {
     /** 大毒豆子 */
     BIG_POISON;
 
-    /** 是否小豆子 */
+    /** 是否小豆子(独立生成轨道,场上恒为 1 颗) */
     public boolean isSmall() {
-        return false;
+        return this == SMALL;
     }
 
     /** 是否触发方向颠倒(仅 BIG_POISON) */
     public boolean isDebuff() {
-        return false;
+        return this == BIG_POISON;
     }
 
-    /** 是否正面豆(得分/救场) */
+    /** 是否正面豆(减负金豆/大豆子;在场 5 秒) */
     public boolean isPositive() {
-        return false;
+        return this == GOLD || this == BIG;
     }
 
-    /** 互斥组 id:大/金同组非 0(其余 0),用于大/金互斥判定(大金不同时在场) */
-    public int mutualGroup() {
-        return 0;
+    /** 是否负面豆(毒豆子/大毒豆子;在场 3 秒;空格 < 10 时排除) */
+    public boolean isNegative() {
+        return this == POISON || this == BIG_POISON;
     }
 }
