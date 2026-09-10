@@ -8,6 +8,7 @@ import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Label;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
@@ -20,10 +21,13 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import model.Bean;
 import model.BeanType;
+import model.Direction;
 import model.GameOverReason;
 import model.GamePhase;
 import model.Point;
 import model.ReadOnlyGameState;
+import view.widgets.GameOverOverlay;
+import view.widgets.PauseOverlay;
 
 import java.util.List;
 import java.util.Locale;
@@ -31,15 +35,24 @@ import java.util.Locale;
 /**
  * 游戏主场景(工作量最大):三层 = HUD / Canvas 棋盘 / 特效与弹层;
  * 只收事件转发 + 只读渲染,规则零行;实现 GameEvents
- * 当前阶段:壳 + 单 Canvas 绘制管线(棋盘格 → 障碍 → 蛇 → 豆)+ HUD(得分/颠倒徽章),内部桩数据自足,不依赖真状态
+ * 当前阶段:壳 + 单 Canvas 绘制管线(棋盘格 → 障碍 → 蛇 → 豆)+ HUD(得分/颠倒徽章)+ 键位转发(方向/空格/R/Esc)+ 暂停/结算弹层,内部桩数据自足,不依赖真状态
  */
 public class GameView extends BorderPane implements GameEvents {
 
     /** 棋盘画布(20×20 × 25px = 500×500) */
     private final Canvas boardCanvas;
 
-    /** 游戏控制器引用(壳阶段仅持有;键位转发/节拍循环接入后使用) */
+    /** 游戏控制器引用(键位转发已接入;节拍循环 tick 装配后使用) */
     private final GameController controller;
+
+    /** 页面路由引用(Esc 结算后回主界面的导航出口;装配时 attachRouter 注入,未注入则 Esc 不导航) */
+    private PageRouter router;
+
+    /** 暂停弹层(遮罩 + 三选项卡片;BR-04;显隐随相位联动) */
+    private final PauseOverlay pauseOverlay = new PauseOverlay();
+
+    /** 结算弹层(原因/最终分/最高分;BR-51;显隐随终局事件) */
+    private final GameOverOverlay gameOverOverlay = new GameOverOverlay();
 
     /** 得分标签(HUD 左侧;BR-60 吃豆后实时刷新) */
     private final Label scoreLabel = new Label("得分 0");
@@ -67,15 +80,20 @@ public class GameView extends BorderPane implements GameEvents {
             new Bean(BeanType.POISON, new Point(5, 16), 0L),
             new Bean(BeanType.BIG_POISON, new Point(15, 10), 0L));
 
-    /** 构造:游戏界面;top = HUD(得分左侧/debuff 徽章计分右侧;BR-60/61),center = 棋盘画布层(特效/弹层后续叠于其上) */
+    /** 构造:游戏界面;top = HUD(得分左侧/debuff 徽章计分右侧;BR-60/61),center = 棋盘画布层(叠加暂停/结算弹层);装配 controller 后安装全局键位转发并接线弹层按钮 */
     public GameView(GameController controller) {
         this.controller = controller;
         double size = BoardConfig.ROWS * BoardConfig.CELL_SIZE_PX;
         boardCanvas = new Canvas(size, size);
         // Canvas 不可被布局拉伸,StackPane 负责居中;背景/边框色后续统一走 CSS
         StackPane boardLayer = new StackPane(boardCanvas);
+        boardLayer.getChildren().addAll(pauseOverlay, gameOverOverlay); // 弹层叠于棋盘之上(初始隐藏)
         setCenter(boardLayer);
         setTop(buildHud());
+        if (controller != null) {
+            installInput(); // 装配正式 controller 才采键位;预览壳阶段(无 controller)跳过
+            wireOverlayActions(); // 弹层按钮动作接线(依赖 controller)
+        }
     }
 
     // ===== HUD 层(棋盘上侧:得分 + debuff 颠倒倒计时徽章;BR-60/61,暂停按钮另项) =====
@@ -114,6 +132,82 @@ public class GameView extends BorderPane implements GameEvents {
             debuffBadge.setVisible(false);
             debuffBadge.setManaged(false);
         }
+    }
+
+    // ===== 键位转发(全局采集:方向/空格/R/Esc → controller;只做按键→语义映射,规则零行) =====
+
+    /** 装配注入页面路由(Esc 结算后回主界面的出口;不注入则 Esc 无导航) */
+    public void attachRouter(PageRouter router) {
+        this.router = router;
+    }
+
+    /** 安装全局键位采集:scene 挂载/卸载时注册/注销捕获过滤器(不受焦点影响;暂停弹窗打开时同样生效,BR-05) */
+    private void installInput() {
+        sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (oldScene != null) {
+                oldScene.removeEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
+            }
+            if (newScene != null) {
+                newScene.addEventFilter(KeyEvent.KEY_PRESSED, this::handleKeyPressed);
+            }
+        });
+    }
+
+    /**
+     * 按键 → 纯数据转发(只做映射,不判规则):方向键(含开局)带真实时刻入缓冲(0.15 s 窗口在接收时判定);
+     * 空格按只读相位暂停/继续;R/Esc 仅结算画面生效(BR-08/51);未识别键不拦截
+     */
+    private void handleKeyPressed(KeyEvent e) {
+        long realMs = System.currentTimeMillis(); // 与 controller/tick 的 realMs 口径一致
+        ReadOnlyGameState state = controller.state(); // 只读句柄;C 模块实现前为 null
+        switch (e.getCode()) {
+            case UP -> controller.queueInput(Direction.UP, realMs);
+            case DOWN -> controller.queueInput(Direction.DOWN, realMs);
+            case LEFT -> controller.queueInput(Direction.LEFT, realMs);
+            case RIGHT -> controller.queueInput(Direction.RIGHT, realMs);
+            case SPACE -> togglePause(state);
+            case R -> {
+                if (isFinished(state)) {
+                    controller.restart();
+                }
+            }
+            case ESCAPE -> {
+                if (isFinished(state) && router != null) {
+                    router.showMenu();
+                }
+            }
+            default -> {
+                return; // 未识别键:不消费,交还默认处理
+            }
+        }
+        e.consume();
+    }
+
+    /** 空格:暂停切换(BR-03/05;按只读相位路由:RUNNING → pause,PAUSED → resume,其余忽略) */
+    private void togglePause(ReadOnlyGameState state) {
+        if (state == null) {
+            return;
+        }
+        switch (state.phase()) {
+            case RUNNING -> controller.pause();
+            case PAUSED -> controller.resume();
+            default -> {
+            }
+        }
+    }
+
+    /** R/Esc 前置:是否处于结算画面(状态未装配实现时视为否,不转发) */
+    private boolean isFinished(ReadOnlyGameState state) {
+        return state != null && state.phase() == GamePhase.FINISHED;
+    }
+
+    // ===== 弹层接线(暂停/结算按钮 → controller;显隐见事件转发区) =====
+
+    /** 弹层动作接线:「继续」/× → resume(BR-05);「终止游戏」→ 终局链路(BR-07);「保存游戏」待 M2 接 SaveController(BR-06) */
+    private void wireOverlayActions() {
+        pauseOverlay.setOnResume(controller::resume);
+        pauseOverlay.setOnTerminate(() -> controller.finish(GameOverReason.ABANDONED));
+        // TODO M2:「保存游戏」→ 装配 SaveController 后接 saveNow(state);当前按钮点击无动作
     }
 
     /** 启动渲染循环:AnimationTimer 每帧 → GameController.tick(now) → render(state 快照);接入 controller 后填充 */
@@ -254,15 +348,23 @@ public class GameView extends BorderPane implements GameEvents {
         updateDebuffBadge(remainingMs);
     }
 
-    /** 终局 → 结算画面(最终分/最高分/原因文案;R 重开 / Esc 回主界面) */
+    /** 终局 → 结算弹层:原因/最终分即时填充;最高分待 M2 接 SaveController 后替换占位 0(BR-51;R 重开 / Esc 回主界面已由键位转发支持) */
     @Override
     public void onGameOver(GameOverReason reason) {
-        // TODO 结算弹层
+        pauseOverlay.hideOverlay(); // 终局必收起暂停弹层(与相位通知幂等)
+        ReadOnlyGameState state = controller != null ? controller.state() : null; // 只读句柄;壳阶段可能为 null
+        int finalScore = state != null ? state.score() : 0;
+        // TODO M2:最高分 = SaveController.highScoreOf(state.map().id)(装配注入后)
+        gameOverOverlay.showResult(reason, finalScore, 0);
     }
 
-    /** 状态机迁移 → 暂停层显隐等 UI 联动 */
+    /** 状态机迁移 → 暂停弹层显隐(BR-04:PAUSED 显示;继续/复位/终局随相位收起,BR-05/07) */
     @Override
     public void onPhaseChanged(GamePhase phase) {
-        // TODO 暂停层显隐
+        if (phase == GamePhase.PAUSED) {
+            pauseOverlay.showOverlay();
+        } else {
+            pauseOverlay.hideOverlay();
+        }
     }
 }
