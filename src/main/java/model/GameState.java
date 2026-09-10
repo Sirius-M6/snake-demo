@@ -1,5 +1,7 @@
 package model;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -21,7 +23,8 @@ public class GameState implements ReadOnlyGameState {
     public Snake snake;
 
     /** 场上豆(最多 3 颗;对外只读) */
-    public List<Bean> beans;
+    // 初始化:保证列表恒非 null;增删仍只能走 addBean/removeBean
+    public List<Bean> beans = new ArrayList<>();
 
     /** 方向颠倒剩余(0 = 无) */
     public long debuffRemainingMs;
@@ -37,88 +40,98 @@ public class GameState implements ReadOnlyGameState {
     /** 当前得分 */
     @Override
     public int score() {
-        return 0;
+        return score;
     }
 
     /** 蛇只读句柄 */
     @Override
     public Snake snake() {
-        return null;
+        return snake;
     }
 
     /** 场上豆只读列表 */
     @Override
     public List<Bean> beans() {
-        return null;
+        return Collections.unmodifiableList(beans);
     }
 
     /** 本局地图 */
     @Override
     public GameMap map() {
-        return null;
+        return map;
     }
 
     /** 当前状态机阶段 */
     @Override
     public GamePhase phase() {
-        return null;
+        return phase;
     }
 
     /** 结束原因 */
     @Override
     public GameOverReason overReason() {
-        return null;
+        return overReason;
     }
 
     /** 方向颠倒剩余 */
     @Override
     public long debuffRemainingMs() {
-        return 0L;
+        return debuffRemainingMs;
     }
 
     /** 当前每格耗时 */
     @Override
     public long intervalMs() {
-        return 0L;
+        return intervalMs;
     }
 
     /** 游戏时间累计 */
     @Override
     public long gameTimeMs() {
-        return 0L;
+        return gameTimeMs;
     }
 
     // ---------- 变更方法(仅 controller 可调) ----------
 
     /** 状态迁移(controller 专用) */
     public void setPhase(GamePhase phase) {
+        this.phase = phase;
     }
 
     /** 终局:置 FINISHED 与原因 */
     public void finish(GameOverReason reason) {
+        setPhase(GamePhase.FINISHED);
+        overReason = reason;
     }
 
     /** 结算分数;完成后若 < 0(分数为负)由 controller 判负 */
     public void addScore(int delta) {
+        score += delta;
     }
 
     /** 场上豆增(BeanController 专用) */
     public void addBean(Bean bean) {
+        beans.add(bean);
     }
 
     /** 场上豆删(BeanController 专用) */
     public void removeBean(Bean bean) {
+        beans.remove(bean);
     }
 
     /** debuff 倒计时设定 */
     public void setDebuffRemainingMs(long remainingMs) {
+        debuffRemainingMs = remainingMs;
     }
 
     /** 提速后更新每格耗时 */
     public void setIntervalMs(long intervalMs) {
+        this.intervalMs = intervalMs;
     }
 
     /** 累计游戏时间(仅 RUNNING) */
     public void advanceGameTime(long delta) {
+        gameTimeMs += delta;
     }
+
 }
