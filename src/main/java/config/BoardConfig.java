@@ -19,7 +19,13 @@ public final class BoardConfig {
 
     /** 开局蛇身初始坐标序列(默认棋盘中央 3 节、向右) */
     public static List<Point> snakeInit() {
-        return null;
+        // 棋盘中心位置，三节蛇，向右，蛇头在最右
+        int mid = ROWS / 2;
+        return List.of(
+                new Point(mid, mid - 2),
+                new Point(mid, mid - 1),
+                new Point(mid, mid)
+        );
     }
 
     /** 私有构造:常量类不可实例化 */

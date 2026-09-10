@@ -16,21 +16,39 @@ public enum Direction {
 
     /** 移动向量分量 dx(与行/列坐标系一致,移动/转向用) */
     public int dx() {
-        return 0;
+        return switch (this) {
+            case LEFT -> -1;
+            case RIGHT -> 1;
+            case UP, DOWN -> 0;
+        };
     }
 
     /** 移动向量分量 dy(与行/列坐标系一致,移动/转向用) */
     public int dy() {
-        return 0;
+        return switch (this) {
+            case UP -> -1;
+            case DOWN -> 1;
+            case LEFT, RIGHT -> 0;
+        };
     }
 
     /** 是否反向 → 禁止掉头判定(例如右行时 LEFT 为反向) */
     public boolean isOpposite(Direction other) {
-        return false;
+        return switch (this) {
+            case UP -> other == DOWN;
+            case DOWN -> other == UP;
+            case LEFT -> other == RIGHT;
+            case RIGHT -> other == LEFT;
+        };
     }
 
     /** debuff 颠倒映射(UP↔DOWN、LEFT↔RIGHT) */
     public Direction inverted() {
-        return null;
+        return switch (this) {
+            case UP -> DOWN;
+            case DOWN -> UP;
+            case LEFT -> RIGHT;
+            case RIGHT -> LEFT;
+        };
     }
 }

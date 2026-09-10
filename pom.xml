@@ -5,49 +5,51 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.example</groupId>
-    <artifactId>javafx-demo</artifactId>
+    <artifactId>snake-demo</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <javafx.version>26.0.2</javafx.version>
+        <javafx.version>17.0.8</javafx.version>
     </properties>
 
     <dependencies>
+        <!-- JavaFX 界面依赖（view层使用，C2业务代码不用导入） -->
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
-            <version>${javafx.version}</version>
+            <version>17.0.13</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
-            <version>${javafx.version}</version>
+            <version>17.0.14</version>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Maven编译插件，绑定JDK17 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <release>17</release>
-                    <!-- 指定编译编码格式，防止中文乱码 -->
-                    <encoding>UTF-8</encoding>
+                    <source>17</source>
+                    <target>17</target>
                 </configuration>
             </plugin>
 
+            <!-- JavaFX插件，提供 javafx:run 命令 -->
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <!-- 改成你实际的主类路径 -->
-                    <mainClass>org.example.MainApp</mainClass>
+                    <!-- 后续写界面，把这里改成你的主类，例如 org.example.view.Main -->
+                    <mainClass>org.example.view.Main</mainClass>
                 </configuration>
             </plugin>
         </plugins>

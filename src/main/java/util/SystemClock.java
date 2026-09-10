@@ -8,6 +8,6 @@ public class SystemClock implements GameClock {
     /** 返回系统当前毫秒(System.currentTimeMillis()) */
     @Override
     public long nowMs() {
-        return 0L;
+        return System.currentTimeMillis();
     }
 }
