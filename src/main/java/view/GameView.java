@@ -3,12 +3,21 @@ package view;
 import config.BoardConfig;
 import controller.GameController;
 import controller.GameEvents;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Label;
+import javafx.scene.layout.Background;
+import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.CornerRadii;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import model.Bean;
 import model.BeanType;
 import model.GameOverReason;
@@ -17,11 +26,12 @@ import model.Point;
 import model.ReadOnlyGameState;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * 游戏主场景(工作量最大):三层 = HUD / Canvas 棋盘 / 特效与弹层;
  * 只收事件转发 + 只读渲染,规则零行;实现 GameEvents
- * 当前阶段:壳 + 单 Canvas 绘制管线(棋盘格 → 障碍 → 蛇 → 豆),内部桩数据自足,不依赖真状态
+ * 当前阶段:壳 + 单 Canvas 绘制管线(棋盘格 → 障碍 → 蛇 → 豆)+ HUD(得分/颠倒徽章),内部桩数据自足,不依赖真状态
  */
 public class GameView extends BorderPane implements GameEvents {
 
@@ -30,6 +40,12 @@ public class GameView extends BorderPane implements GameEvents {
 
     /** 游戏控制器引用(壳阶段仅持有;键位转发/节拍循环接入后使用) */
     private final GameController controller;
+
+    /** 得分标签(HUD 左侧;BR-60 吃豆后实时刷新) */
+    private final Label scoreLabel = new Label("得分 0");
+
+    /** debuff 颠倒倒计时徽章(HUD 计分右侧;BR-61 仅 debuff 生效期显示) */
+    private final Label debuffBadge = new Label();
 
     // ===== 桩数据(不依赖真状态;接入 GameState 后由 render(state) 换数据源,绘制函数不动) =====
 
@@ -51,7 +67,7 @@ public class GameView extends BorderPane implements GameEvents {
             new Bean(BeanType.POISON, new Point(5, 16), 0L),
             new Bean(BeanType.BIG_POISON, new Point(15, 10), 0L));
 
-    /** 构造:游戏界面;top 预留 HUD(后续任务),center = 棋盘画布层(特效/弹层后续叠于其上) */
+    /** 构造:游戏界面;top = HUD(得分左侧/debuff 徽章计分右侧;BR-60/61),center = 棋盘画布层(特效/弹层后续叠于其上) */
     public GameView(GameController controller) {
         this.controller = controller;
         double size = BoardConfig.ROWS * BoardConfig.CELL_SIZE_PX;
@@ -59,6 +75,45 @@ public class GameView extends BorderPane implements GameEvents {
         // Canvas 不可被布局拉伸,StackPane 负责居中;背景/边框色后续统一走 CSS
         StackPane boardLayer = new StackPane(boardCanvas);
         setCenter(boardLayer);
+        setTop(buildHud());
+    }
+
+    // ===== HUD 层(棋盘上侧:得分 + debuff 颠倒倒计时徽章;BR-60/61,暂停按钮另项) =====
+
+    /** 构建 HUD:左 = 实时得分;计分右侧 = 颠倒徽章;配色随主题(Palette);字体/间距桩阶段内联,M2 统一走 CSS */
+    private HBox buildHud() {
+        Palette p = Palette.of(Palette.Theme.PIPE); // TODO 真状态:随 render 同一主题取色
+        scoreLabel.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 18));
+        scoreLabel.setTextFill(p.snakeTail());
+        debuffBadge.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 14));
+        debuffBadge.setTextFill(Color.WHITE);
+        // 徽章底色联动触发源(大毒豆深紫),圆角胶囊
+        debuffBadge.setBackground(new Background(new BackgroundFill(
+                p.beanColor(BeanType.BIG_POISON), new CornerRadii(10), Insets.EMPTY)));
+        debuffBadge.setPadding(new Insets(3, 10, 3, 10));
+        debuffBadge.setVisible(false);
+        debuffBadge.setManaged(false);
+        HBox hud = new HBox(12, scoreLabel, debuffBadge);
+        hud.setAlignment(Pos.CENTER_LEFT);
+        hud.setPadding(new Insets(10, 12, 6, 12));
+        return hud;
+    }
+
+    /** 刷新得分显示(BR-60:吃豆立即更新;接线:渲染循环从只读状态读取当前分值) */
+    public void updateScore(int score) {
+        scoreLabel.setText("得分 " + score);
+    }
+
+    /** 刷新颠倒徽章:remainingMs > 0 显示实时倒计时;归 0 隐藏(BR-61 仅生效期显示) */
+    private void updateDebuffBadge(long remainingMs) {
+        if (remainingMs > 0) {
+            debuffBadge.setText(String.format(Locale.ROOT, "颠倒 %.1fs", remainingMs / 1000.0));
+            debuffBadge.setVisible(true);
+            debuffBadge.setManaged(true);
+        } else {
+            debuffBadge.setVisible(false);
+            debuffBadge.setManaged(false);
+        }
     }
 
     /** 启动渲染循环:AnimationTimer 每帧 → GameController.tick(now) → render(state 快照);接入 controller 后填充 */
@@ -193,10 +248,10 @@ public class GameView extends BorderPane implements GameEvents {
         // TODO 新豆出现动画
     }
 
-    /** 方向颠倒剩余变化 → HUD 颠倒横幅/倒计时 */
+    /** 方向颠倒剩余变化 → HUD 颠倒徽章(实时倒计时/结束隐藏) */
     @Override
     public void onDebuffChanged(long remainingMs) {
-        // TODO HUD 颠倒横幅
+        updateDebuffBadge(remainingMs);
     }
 
     /** 终局 → 结算画面(最终分/最高分/原因文案;R 重开 / Esc 回主界面) */
