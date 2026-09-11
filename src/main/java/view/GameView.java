@@ -19,8 +19,6 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.StrokeLineCap;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import model.Bean;
 import model.BeanType;
 import model.Direction;
@@ -129,22 +127,21 @@ public class GameView extends BorderPane implements GameEvents {
 
     // ===== HUD 层(棋盘上侧:得分 + debuff 颠倒倒计时徽章;BR-60/61,暂停按钮另项) =====
 
-    /** 构建 HUD:左 = 实时得分;计分右侧 = 颠倒徽章;配色随主题(Palette);字体/间距桩阶段内联,M2 统一走 CSS */
+    /** 构建 HUD:左 = 实时得分;计分右侧 = 颠倒徽章;配色随主题(Palette),字体/间距走 CSS(app.css) */
     private HBox buildHud() {
         Palette p = Palette.of(Palette.Theme.PIPE); // TODO 真状态:随 render 同一主题取色
-        scoreLabel.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 18));
+        scoreLabel.getStyleClass().add("hud-score");
         scoreLabel.setTextFill(p.snakeTail());
-        debuffBadge.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 14));
+        debuffBadge.getStyleClass().add("hud-debuff");
         debuffBadge.setTextFill(Color.WHITE);
-        // 徽章底色联动触发源(大毒豆深紫),圆角胶囊
+        // 徽章底色联动触发源(大毒豆深紫),圆角胶囊;内边距/字体规格见 CSS
         debuffBadge.setBackground(new Background(new BackgroundFill(
                 p.beanColor(BeanType.BIG_POISON), new CornerRadii(10), Insets.EMPTY)));
-        debuffBadge.setPadding(new Insets(3, 10, 3, 10));
         debuffBadge.setVisible(false);
         debuffBadge.setManaged(false);
-        HBox hud = new HBox(12, scoreLabel, debuffBadge);
+        HBox hud = new HBox(scoreLabel, debuffBadge);
+        hud.getStyleClass().add("hud");
         hud.setAlignment(Pos.CENTER_LEFT);
-        hud.setPadding(new Insets(10, 12, 6, 12));
         return hud;
     }
 

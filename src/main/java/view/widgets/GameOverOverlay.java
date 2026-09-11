@@ -11,15 +11,13 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import model.GameOverReason;
 import view.Palette;
 
 /**
  * 结算弹层(终局叠层):半透明遮罩 + 居中卡片 —— 原因文案 / 最终得分 / 本图最高分 / 操作提示(BR-51);
  * 数据经 showResult 注入(GameView 在 onGameOver 中调用;最高分待 M2 接 SaveController);
- * R 重开 / Esc 退出由 GameView 键位转发支持;配色取自 Palette,字体/间距内联,M2 统一走 CSS
+ * R 重开 / Esc 退出由 GameView 键位转发支持;配色取自 Palette,字体/间距走 CSS(app.css)
  */
 public class GameOverOverlay extends StackPane {
 
@@ -72,27 +70,27 @@ public class GameOverOverlay extends StackPane {
     private StackPane buildCard() {
         Palette p = Palette.of(Palette.Theme.PIPE); // TODO 真状态:随主题取色(与渲染/HUD 一致)
         Label title = new Label("游戏结束");
-        title.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 20));
+        title.getStyleClass().add("overlay-title");
         title.setTextFill(p.snakeTail());
         VBox.setMargin(title, new Insets(0, 0, 6, 0));
 
-        reasonLabel.setFont(Font.font("Microsoft YaHei", FontWeight.NORMAL, 14));
+        reasonLabel.getStyleClass().add("result-reason");
         reasonLabel.setTextFill(p.snakeTail().deriveColor(0, 1, 1, 0.72)); // 次要文字:同色系淡化
 
         Label scoreCaption = new Label("最终得分");
-        scoreCaption.setFont(Font.font("Microsoft YaHei", FontWeight.NORMAL, 12));
+        scoreCaption.getStyleClass().add("result-dim");
         scoreCaption.setTextFill(p.snakeTail().deriveColor(0, 1, 1, 0.6));
         VBox.setMargin(scoreCaption, new Insets(10, 0, 0, 0));
 
-        scoreLabel.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 34));
+        scoreLabel.getStyleClass().add("result-score");
         scoreLabel.setTextFill(p.snakeHead()); // 最终分用蛇头亮蓝强调
 
-        bestLabel.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 15));
+        bestLabel.getStyleClass().add("result-best");
         bestLabel.setTextFill(p.snakeTail());
         VBox.setMargin(bestLabel, new Insets(4, 0, 0, 0));
 
         Label hint = new Label("按 R 重新开始 · 按 Esc 退出");
-        hint.setFont(Font.font("Microsoft YaHei", FontWeight.NORMAL, 12));
+        hint.getStyleClass().add("result-dim");
         hint.setTextFill(p.snakeTail().deriveColor(0, 1, 1, 0.6));
         VBox.setMargin(hint, new Insets(12, 0, 0, 0));
 

@@ -12,15 +12,13 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import model.BeanType;
 import view.Palette;
 
 /**
  * 暂停弹层(游戏界面内叠层):半透明遮罩 + 居中卡片 —— 三选项「继续 / 保存游戏 / 终止游戏」+ 右上角 ×(BR-04/05);
  * 显隐由 GameView 按相位联动(PAUSED 显示);按钮动作经 setOnXxx 注入,未接线时点击无动作;
- * 配色取自 Palette(桩阶段定管道主题),字体/间距内联,M2 统一走 CSS
+ * 配色取自 Palette(桩阶段定管道主题),字体/间距/尺寸走 CSS(app.css)
  */
 public class PauseOverlay extends StackPane {
 
@@ -74,7 +72,7 @@ public class PauseOverlay extends StackPane {
     private StackPane buildCard() {
         Palette p = Palette.of(Palette.Theme.PIPE); // TODO 真状态:随主题取色(与渲染/HUD 一致)
         Label title = new Label("游戏暂停");
-        title.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 20));
+        title.getStyleClass().add("overlay-title");
         title.setTextFill(p.snakeTail());
 
         PrimaryButton resumeBtn = makeButton("继续", p.snakeHead(), Color.WHITE);
@@ -104,26 +102,22 @@ public class PauseOverlay extends StackPane {
         return card;
     }
 
-    /** 选项按钮:统一用 PrimaryButton(样式当前空壳,视觉暂内联) */
+    /** 选项按钮:字体/尺寸走 PrimaryButton 默认样式类(primary-button);此处只设色值与交互 */
     private PrimaryButton makeButton(String text, Color bg, Color fg) {
         PrimaryButton btn = new PrimaryButton();
         btn.setText(text);
-        btn.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 15));
         btn.setTextFill(fg);
         btn.setBackground(new Background(new BackgroundFill(bg, new CornerRadii(8), Insets.EMPTY)));
-        btn.setPrefWidth(200);
-        btn.setPrefHeight(38);
         btn.setFocusTraversable(false); // 键位采集在 scene 全局过滤器,不依赖焦点
         return btn;
     }
 
-    /** 右上角关闭按钮 ×(BR-05 第三种恢复方式) */
+    /** 右上角关闭按钮 ×(BR-05 第三种恢复方式;字号/内边距走 CSS) */
     private Button makeCloseButton(Palette p) {
         Button close = new Button("×");
-        close.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 16));
+        close.getStyleClass().add("overlay-close");
         close.setTextFill(p.snakeTail());
         close.setBackground(Background.EMPTY);
-        close.setPadding(new Insets(2, 6, 2, 6));
         close.setFocusTraversable(false);
         return close;
     }

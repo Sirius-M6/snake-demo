@@ -8,8 +8,6 @@ import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.Region;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import model.BeanType;
 import view.Palette;
 
@@ -25,14 +23,13 @@ public class DirectionBanner extends Pane {
     /** 倒计时标签(胶囊底,内容自适应) */
     private final Label label = new Label();
 
-    /** 构造:构建胶囊横幅(大毒豆深紫底,BR-23 触发源联动),初始隐藏 */
+    /** 构造:构建胶囊横幅(大毒豆深紫底,BR-23 触发源联动;字体/内边距走 CSS),初始隐藏 */
     public DirectionBanner() {
         Palette p = Palette.of(Palette.Theme.PIPE); // TODO 真状态:随主题取色
-        label.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 14));
+        label.getStyleClass().add("banner-label");
         label.setTextFill(Color.WHITE);
         label.setBackground(new Background(new BackgroundFill(
                 p.beanColor(BeanType.BIG_POISON), new CornerRadii(13), Insets.EMPTY)));
-        label.setPadding(new Insets(4, 14, 4, 14));
         getChildren().add(label);
         setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE); // 不被父层拉伸(顶部居中时保持内容尺寸)
         setMouseTransparent(true);

@@ -7,8 +7,6 @@ import javafx.animation.Timeline;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.util.Duration;
 
@@ -30,7 +28,7 @@ public class ScorePopup extends Pane {
     /** 飘一条分数文案:cx/cy = 格像素中心;text 由调用方拼符号("+6"/"-10");color 为主色 */
     public void popAt(double cx, double cy, String text, Color color) {
         Text label = new Text(text);
-        label.setFont(Font.font("Microsoft YaHei", FontWeight.BOLD, 17));
+        label.getStyleClass().add("popup-text"); // 字体走 app.css
         label.setFill(color);
         // 深色投影:任何棋盘底色上保持可读
         label.setEffect(new DropShadow(3, 0, 1, Color.rgb(0, 0, 0, 0.55)));
