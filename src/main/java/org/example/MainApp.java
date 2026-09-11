@@ -1,7 +1,16 @@
 package org.example;
 
+import java.util.Random;
+
 import javafx.application.Application;
 import javafx.stage.Stage;
+
+import controller.BeanController;
+import controller.GameController;
+import controller.InputController;
+import controller.SaveController;
+import util.LocalStore;
+import util.WeightedPicker;
 
 /**
  * 程序入口;只做装配与键位采集转发,不含规则(全体维护,PM 协调装配)
@@ -21,7 +30,15 @@ public class MainApp extends Application {
      */
     @Override
     public void start(Stage stage) {
-        // 待填充:依赖装配、场景装载与全局键位采集
+        // 依赖装配:四 Controller(持久化注入 LocalStore;InMemoryStore 仅测试用)
+        InputController inputController = new InputController();
+        SaveController saveController = new SaveController(new LocalStore());
+        // BeanController 每局新建(方式1):工厂 lambda 造出绑定本局 state/board/events 的调度
+        GameController gameController = new GameController(
+                (state, board, events) -> new BeanController(state, board, new WeightedPicker(new Random()), events),
+                inputController);
+
+        // 待联调窗口:PageRouter 装载主界面 + GameView(gameController) 注册事件与渲染循环 + 全局键位采集
         stage.setTitle("贪吃蛇");
         stage.show();
     }
