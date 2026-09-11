@@ -522,5 +522,8 @@ public class GameView extends BorderPane implements GameEvents {
         } else {
             pauseOverlay.hideOverlay();
         }
+        if (phase != GamePhase.FINISHED) {
+            gameOverOverlay.hideOverlay(); // 离开终局相位(R 重开/读档装载/新局):收起结算层,避免盖住新局画面
+        }
     }
 }

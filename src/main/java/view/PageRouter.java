@@ -44,8 +44,11 @@ public class PageRouter {
         this.recordsView = new RecordsView(saveController, this);
     }
 
-    /** 显示主界面 */
+    /** 显示主界面:游戏窗口若在显示则关闭(结算画面 Esc 退出→回到单窗口主菜单),再弹出主菜单 */
     public void showMenu() {
+        if (gameStage != null && gameStage.isShowing()) {
+            gameStage.close();
+        }
         mainMenuView.showMainMenu();
     }
 
