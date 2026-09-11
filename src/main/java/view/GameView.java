@@ -1,5 +1,6 @@
 package view;
 
+import config.BeanConfig;
 import config.BoardConfig;
 import controller.GameController;
 import controller.GameEvents;
@@ -14,6 +15,7 @@ import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.StrokeLineCap;
@@ -26,6 +28,10 @@ import model.GameOverReason;
 import model.GamePhase;
 import model.Point;
 import model.ReadOnlyGameState;
+import view.fx.BeanBurst;
+import view.fx.DirectionBanner;
+import view.fx.ScreenFlash;
+import view.fx.ScorePopup;
 import view.widgets.GameOverOverlay;
 import view.widgets.PauseOverlay;
 
@@ -35,7 +41,7 @@ import java.util.Locale;
 /**
  * 游戏主场景(工作量最大):三层 = HUD / Canvas 棋盘 / 特效与弹层;
  * 只收事件转发 + 只读渲染,规则零行;实现 GameEvents
- * 当前阶段:壳 + 单 Canvas 绘制管线(棋盘格 → 障碍 → 蛇 → 豆)+ HUD(得分/颠倒徽章)+ 键位转发(方向/空格/R/Esc)+ 暂停/结算弹层,内部桩数据自足,不依赖真状态
+ * 当前阶段:壳 + 单 Canvas 绘制管线(棋盘格 → 障碍 → 蛇 → 豆)+ HUD(得分/颠倒徽章)+ 键位转发(方向/空格/R/Esc)+ 暂停/结算弹层 + fx 特效接线(爆点/飘分/红闪/颠倒横幅),内部桩数据自足,不依赖真状态
  */
 public class GameView extends BorderPane implements GameEvents {
 
@@ -53,6 +59,15 @@ public class GameView extends BorderPane implements GameEvents {
 
     /** 结算弹层(原因/最终分/最高分;BR-51;显隐随终局事件) */
     private final GameOverOverlay gameOverOverlay = new GameOverOverlay();
+
+    /** 瞬时特效宿主层(吃豆爆点/飘分动态挂入,播完各自自移除;与棋盘画布同尺寸对齐) */
+    private final Pane transientFxLayer = new Pane();
+
+    /** 方向颠倒横幅(棋盘顶部居中;onDebuffChanged 驱动显隐与倒计时) */
+    private final DirectionBanner directionBanner = new DirectionBanner();
+
+    /** 整屏红闪(毒豆扣分/死亡瞬间警示;居叠加层最顶) */
+    private final ScreenFlash screenFlash = new ScreenFlash();
 
     /** 得分标签(HUD 左侧;BR-60 吃豆后实时刷新) */
     private final Label scoreLabel = new Label("得分 0");
@@ -80,20 +95,36 @@ public class GameView extends BorderPane implements GameEvents {
             new Bean(BeanType.POISON, new Point(5, 16), 0L),
             new Bean(BeanType.BIG_POISON, new Point(15, 10), 0L));
 
-    /** 构造:游戏界面;top = HUD(得分左侧/debuff 徽章计分右侧;BR-60/61),center = 棋盘画布层(叠加暂停/结算弹层);装配 controller 后安装全局键位转发并接线弹层按钮 */
+    /** 构造:游戏界面;top = HUD(得分左侧/debuff 徽章计分右侧;BR-60/61),center = 棋盘层(画布 → 特效 → 弹层 → 红闪);装配 controller 后安装全局键位转发并接线弹层按钮 */
     public GameView(GameController controller) {
         this.controller = controller;
         double size = BoardConfig.ROWS * BoardConfig.CELL_SIZE_PX;
         boardCanvas = new Canvas(size, size);
         // Canvas 不可被布局拉伸,StackPane 负责居中;背景/边框色后续统一走 CSS
-        StackPane boardLayer = new StackPane(boardCanvas);
-        boardLayer.getChildren().addAll(pauseOverlay, gameOverOverlay); // 弹层叠于棋盘之上(初始隐藏)
+        // 叠加层序(底 → 顶):画布 → 颠倒横幅 → 瞬时特效 → 暂停/结算弹层 → 红闪(警示盖弹层)
+        StackPane boardLayer = new StackPane(boardCanvas, directionBanner);
+        StackPane.setAlignment(directionBanner, Pos.TOP_CENTER);
+        StackPane.setMargin(directionBanner, new Insets(6, 0, 0, 0));
+        pinToBoard(transientFxLayer); // 瞬时特效宿主:与画布同尺寸对齐,内部坐标即棋盘像素
+        boardLayer.getChildren().add(transientFxLayer);
+        boardLayer.getChildren().addAll(pauseOverlay, gameOverOverlay); // 弹层叠于棋盘与特效之上(初始隐藏)
+        pinToBoard(screenFlash); // 红闪:与画布同尺寸,居最顶
+        boardLayer.getChildren().add(screenFlash);
         setCenter(boardLayer);
         setTop(buildHud());
         if (controller != null) {
             installInput(); // 装配正式 controller 才采键位;预览壳阶段(无 controller)跳过
             wireOverlayActions(); // 弹层按钮动作接线(依赖 controller)
         }
+    }
+
+    /** 固定叠加层为棋盘画布同尺寸(StackPane 居中下与画布重合,内部坐标系即棋盘像素坐标);特效层不参与鼠标交互 */
+    private void pinToBoard(Pane layer) {
+        double size = boardCanvas.getWidth();
+        layer.setMinSize(size, size);
+        layer.setPrefSize(size, size);
+        layer.setMaxSize(size, size);
+        layer.setMouseTransparent(true);
     }
 
     // ===== HUD 层(棋盘上侧:得分 + debuff 颠倒倒计时徽章;BR-60/61,暂停按钮另项) =====
@@ -328,30 +359,51 @@ public class GameView extends BorderPane implements GameEvents {
         g.fillPolygon(xs, ys, points);
     }
 
-    // ===== 事件转发(view 实现,controller 触发;联动特效/弹层为后续任务,现阶段空实现) =====
+    // ===== 事件转发(view 实现,controller 触发;事件参数 → 特效/弹层联动,不猜状态) =====
 
-    /** 吃豆(效果结算后)→ 吃豆爆点/飘分特效 */
+    /** 吃豆(效果结算后)→ 爆点 + 飘分(毒豆用警示红);毒豆追加整屏红闪(BR-23 debuff 另由 onDebuffChanged 提示) */
     @Override
     public void onBeanEaten(BeanType type, Point pos) {
-        // TODO 爆点/飘分特效
+        double cell = BoardConfig.CELL_SIZE_PX;
+        double cx = (pos.col + 0.5) * cell; // 格 → 像素中心(换算由调用方做)
+        double cy = (pos.row + 0.5) * cell;
+        Palette p = Palette.of(Palette.Theme.PIPE); // TODO 真状态:随主题取色
+        boolean toxic = type == BeanType.POISON || type == BeanType.BIG_POISON;
+
+        BeanBurst burst = new BeanBurst();
+        transientFxLayer.getChildren().add(burst);
+        burst.burstAt(cx, cy, p.beanColor(type));
+
+        ScorePopup popup = new ScorePopup();
+        transientFxLayer.getChildren().add(popup);
+        // 分值文本单一数据源取 BeanConfig.scoreOf(若显示 +0 说明分值表桩未填,不另抄一份)
+        popup.popAt(cx, cy, String.format(Locale.ROOT, "%+d", BeanConfig.scoreOf(type)),
+                toxic ? ScorePopup.DAMAGE_COLOR : p.beanColor(type));
+
+        if (toxic) {
+            screenFlash.flash(); // 毒豆扣分瞬间警示
+        }
     }
 
-    /** 新豆补刷成功 → 新豆出现动画(可选) */
+    /** 新豆补刷成功 → 新豆出现动画(设计标注可选;无专属 fx 组件,暂不播放) */
     @Override
     public void onBeanRefilled(Bean bean) {
-        // TODO 新豆出现动画
     }
 
-    /** 方向颠倒剩余变化 → HUD 颠倒徽章(实时倒计时/结束隐藏) */
+    /** 方向颠倒剩余变化 → HUD 颠倒徽章 + 棋盘顶部横幅(实时倒计时/结束隐藏) */
     @Override
     public void onDebuffChanged(long remainingMs) {
         updateDebuffBadge(remainingMs);
+        directionBanner.update(remainingMs);
     }
 
-    /** 终局 → 结算弹层:原因/最终分即时填充;最高分待 M2 接 SaveController 后替换占位 0(BR-51;R 重开 / Esc 回主界面已由键位转发支持) */
+    /** 终局 → 死亡红闪(主动终止/通关不播)+ 结算弹层:原因/最终分即时填充;最高分待 M2 接 SaveController 后替换占位 0(BR-51;R 重开 / Esc 回主界面已由键位转发支持) */
     @Override
     public void onGameOver(GameOverReason reason) {
         pauseOverlay.hideOverlay(); // 终局必收起暂停弹层(与相位通知幂等)
+        if (reason != GameOverReason.ABANDONED && reason != GameOverReason.CLEARED) {
+            screenFlash.flash(); // 撞击/负分死亡的瞬间警示
+        }
         ReadOnlyGameState state = controller != null ? controller.state() : null; // 只读句柄;壳阶段可能为 null
         int finalScore = state != null ? state.score() : 0;
         // TODO M2:最高分 = SaveController.highScoreOf(state.map().id)(装配注入后)
