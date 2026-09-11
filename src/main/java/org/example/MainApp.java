@@ -2,8 +2,13 @@ package org.example;
 
 import java.util.Random;
 
+import controller.GameController;
+import controller.SaveController;
 import javafx.application.Application;
 import javafx.stage.Stage;
+import model.GameOptions;
+import util.LocalStore;
+import view.PageRouter;
 
 import controller.BeanController;
 import controller.GameController;
@@ -39,8 +44,15 @@ public class MainApp extends Application {
                 inputController);
 
         // 待联调窗口:PageRouter 装载主界面 + GameView(gameController) 注册事件与渲染循环 + 全局键位采集
+        // 主舞台标题预留(主界面由 PageRouter.showMenu 开窗显示)
         stage.setTitle("贪吃蛇");
-        stage.show();
+
+        // 页面装配(持久化注入 LocalStore;InMemoryStore 仅测试用,不进装配)→ showMenu 显示主界面
+        SaveController saveController = new SaveController(new LocalStore());
+        GameController gameController = new GameController();
+        GameOptions gameOptions = new GameOptions();
+        PageRouter pageRouter = new PageRouter(gameController, saveController, gameOptions);
+        pageRouter.showMenu();
     }
 
     /** 应用退出钩子(如需清理) */

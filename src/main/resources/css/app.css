@@ -1,0 +1,94 @@
+/* 贪吃蛇全局样式表:字体/间距/尺寸集中于此,统一样式
+ * 边界:色值不进 CSS——主题配色由 Palette 运行时提供(Canvas 绘制与双主题切换依赖代码取色,避免两份色彩真相)
+ * 挂载(Scene 装配时一行):
+ *   scene.getStylesheets().add(getClass().getResource("/css/app.css").toExternalForm()); */
+
+/* 全局字体:根节点声明,整棵 UI 树继承(Label/Button/Text 未显式覆盖处) */
+.root {
+    -fx-font-family: "Microsoft YaHei";
+}
+
+/* ===== HUD(棋盘上侧:得分 + 颠倒徽章;BR-60/61) ===== */
+
+.hud {
+    -fx-padding: 1 12 1 12; /* 表头固定 25 px 高(UiConfig.HUD_H),上下仅留 1 px 边 */
+    -fx-spacing: 12;
+}
+
+.hud-score {
+    -fx-font-size: 18px;
+    -fx-font-weight: bold;
+}
+
+.hud-debuff {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 3 10 3 10;
+}
+
+/* 暂停按钮(HUD 右上角常驻;双竖杠图标色由 Palette 运行时提供,此处只定尺寸/内边距/手型) */
+.hud-pause {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-min-width: 24px;
+    -fx-min-height: 20px;
+    -fx-pref-width: 24px;
+    -fx-pref-height: 20px;
+    -fx-max-width: 24px;
+    -fx-max-height: 20px;
+    -fx-padding: 2;
+}
+
+/* ===== 弹层公共(PauseOverlay / GameOverOverlay) ===== */
+
+.overlay-title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+}
+
+.overlay-close {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-padding: 2 6 2 6;
+}
+
+/* 主按钮:PrimaryButton 默认样式(统一字号与尺寸) */
+.primary-button {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+    -fx-pref-width: 200px;
+    -fx-pref-height: 38px;
+}
+
+/* ===== 结算层专属文字规格 ===== */
+
+.result-score {
+    -fx-font-size: 34px;
+    -fx-font-weight: bold;
+}
+
+.result-reason {
+    -fx-font-size: 14px;
+}
+
+.result-best {
+    -fx-font-size: 15px;
+    -fx-font-weight: bold;
+}
+
+.result-dim {
+    -fx-font-size: 12px;
+}
+
+/* ===== fx 特效文字 ===== */
+
+.banner-label {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-padding: 4 14 4 14;
+}
+
+.popup-text {
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+}
