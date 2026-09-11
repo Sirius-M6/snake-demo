@@ -25,24 +25,21 @@ public class InputController {
         }
     }
 
-    /** 节拍点消费缓冲:与 headDir 相反 → 保持原向(禁止掉头);inverted → 整体取反;记录 lastDir/lastAtMs */
+    /** 节拍点消费缓冲:与 headDir 相反 → 保持原向(禁止掉头);debuff 仅颠倒玩家输入,无输入惯性直行不取反;记录 lastDir/lastAtMs */
     public Direction resolveTurn(Direction headDir, boolean inverted) {
-        Direction target = pendingDir;
-        if(target == null){
-            target = lastDir;
+        Direction input = pendingDir;
+        if (inverted && input != null) {
+            input = input.inverted(); // debuff:仅颠倒本次玩家输入
         }
-        // 禁止直接掉头
-        if(target != null && headDir.isOpposite(target)){
+        Direction target = (input != null) ? input : lastDir; // 无输入:惯性直行,不取反
+        // 禁止直接掉头(对颠倒后的结果判定)
+        if (target != null && headDir.isOpposite(target)) {
             target = headDir;
         }
-        Direction finalDir = target;
-        if(inverted && finalDir != null){
-            finalDir = finalDir.inverted();
-        }
         // 更新生效方向与时间戳
-        lastDir = finalDir;
+        lastDir = target;
         lastAtMs = System.nanoTime() / 1_000_000L;
         pendingDir = null;
-        return finalDir;
+        return target;
     }
 }
