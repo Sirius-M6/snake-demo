@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import config.SaveConfig;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import model.Bean;
 import model.BeanType;
@@ -167,7 +168,7 @@ class SaveControllerTest {
         state.map = new GameMap(mapId, "测试图");
         state.difficulty = Difficulty.NORMAL;
         state.score = score;
-        state.snake = new Snake();
+        state.snake = new Snake(List.of());
         state.beans = new ArrayList<>();
         state.beans.add(new Bean(BeanType.SMALL, new Point(4, 2), 0L));
         state.gameTimeMs = 2500L;

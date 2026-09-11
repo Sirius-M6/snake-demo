@@ -91,14 +91,8 @@ public class SaveController {
         state.map = map;
         state.difficulty = data.difficulty;
         state.score = data.score;
-        // 蛇身重建:复用 Snake.step(_, true)"保留尾"的语义,自尾向头逐节压入即可还原整链(骨架零变更)
-        Snake snake = new Snake();
-        if (data.body != null) {
-            for (int i = data.body.size() - 1; i >= 0; i--) {
-                snake.step(data.body.get(i), true);
-            }
-        }
-        state.snake = snake;
+        // 蛇身重建:存档 body 头在前,与 Snake(List) 构造同序 → 直接装载(2026-09-11 集成修正;null/空按空蛇防御)
+        state.snake = new Snake(data.body != null ? data.body : List.of());
         // 豆子恢复:bornMs = 存档 gameTimeMs + 剩余寿命 − 该类型在场时限 ⇒ 恢复后剩余寿命与存档值一致
         //   (2026-09-11 修正:原式 gameTimeMs − 剩余寿命 会把剩余翻转为"时限 − 剩余";小豆哨兵(时限 MAX)折算后仍不限时)
         List<Bean> beans = new ArrayList<>();

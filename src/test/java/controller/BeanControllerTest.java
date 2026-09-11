@@ -354,6 +354,7 @@ class BeanControllerTest {
         private final List<Point> cells;
 
         StubSnake(List<Point> cells) {
+            super(cells);
             this.cells = cells;
         }
 
@@ -369,6 +370,7 @@ class BeanControllerTest {
         private final List<Point> pool;
 
         StubBoard(List<Point> pool) {
+            super(20, 20, Set.of());
             this.pool = pool;
         }
 

@@ -45,8 +45,9 @@ public class BeanController {
         this.events = events;
     }
 
-    /** 开局:补满 3 颗——1 颗小豆子(独立轨道) + 2 颗非小豆子(按 BR-29 概率抽取);逐颗落空白格;bornMs = gameTime(0) */
+    /** 开局:清空上一局遗留的补刷计划(契约④"不跨局"),再补满 3 颗——1 颗小豆子(独立轨道) + 2 颗非小豆子(按 BR-29 概率抽取);逐颗落空白格;bornMs = gameTime(0) */
     public void spawnInitial() {
+        refillDueAt.clear(); // 新局开局:清空上一局遗留补刷计划(契约④;2026-09-11 集成修正)
         long now = state.gameTimeMs;
         // ① 小豆子:找空白格落位(占用 = 蛇身 + 全部豆位;障碍由 Board 内排除)
         Set<Point> occupied = new HashSet<>();
