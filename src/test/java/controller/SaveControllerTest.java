@@ -104,15 +104,23 @@ class SaveControllerTest {
     @Disabled("待 A2 实现 MapCatalog.byId、C2 实现 Snake.body/step 后启用(联调阶段)")
     @DisplayName("读档成功:重建 PAUSED 局面")
     void loadRestoresPausedState() {
-        controller.saveNow(sampleState("pipe", 3));
+        GameState state = sampleState("pipe", 3);
+        // 折算公式回归(2026-09-11 修正):毒豆出生 0/时限 3000,存档时刻 2500 ⇒ 存档剩余 500,恢复后应仍为 500
+        state.beans.add(new Bean(BeanType.POISON, new Point(5, 5), 0L));
+        controller.saveNow(state);
 
         Optional<GameState> loaded = controller.loadAndResume();
 
         assertTrue(loaded.isPresent());
-        GameState state = loaded.get();
-        assertEquals(GamePhase.PAUSED, state.phase);
-        assertEquals(3, state.score);
-        assertEquals(2500L, state.gameTimeMs);
+        GameState restored = loaded.get();
+        assertEquals(GamePhase.PAUSED, restored.phase);
+        assertEquals(3, restored.score);
+        assertEquals(2500L, restored.gameTimeMs);
+        // 豆子折算:非小豆剩余寿命与存档时一致;小豆哨兵(不限时)恢复后仍为 MAX
+        Bean poison = restored.beans.stream().filter(b -> b.type == BeanType.POISON).findFirst().orElseThrow();
+        assertEquals(500L, poison.remainingMs(restored.gameTimeMs));
+        Bean small = restored.beans.stream().filter(b -> b.type == BeanType.SMALL).findFirst().orElseThrow();
+        assertEquals(Long.MAX_VALUE, small.remainingMs(restored.gameTimeMs));
     }
 
     // ===== 最高分判定 =====
