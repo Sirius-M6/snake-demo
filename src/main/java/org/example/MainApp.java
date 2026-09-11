@@ -2,20 +2,16 @@ package org.example;
 
 import java.util.Random;
 
+import controller.BeanController;
 import controller.GameController;
+import controller.InputController;
 import controller.SaveController;
 import javafx.application.Application;
 import javafx.stage.Stage;
 import model.GameOptions;
 import util.LocalStore;
-import view.PageRouter;
-
-import controller.BeanController;
-import controller.GameController;
-import controller.InputController;
-import controller.SaveController;
-import util.LocalStore;
 import util.WeightedPicker;
+import view.PageRouter;
 
 /**
  * 程序入口;只做装配与键位采集转发,不含规则(全体维护,PM 协调装配)
@@ -43,13 +39,10 @@ public class MainApp extends Application {
                 (state, board, events) -> new BeanController(state, board, new WeightedPicker(new Random()), events),
                 inputController);
 
-        // 待联调窗口:PageRouter 装载主界面 + GameView(gameController) 注册事件与渲染循环 + 全局键位采集
-        // 主舞台标题预留(主界面由 PageRouter.showMenu 开窗显示)
+        // 主舞台标题预留(主界面由 PageRouter.showMenu 开窗显示;键位采集随 GameView 装配接入)
         stage.setTitle("贪吃蛇");
 
-        // 页面装配(持久化注入 LocalStore;InMemoryStore 仅测试用,不进装配)→ showMenu 显示主界面
-        SaveController saveController = new SaveController(new LocalStore());
-        GameController gameController = new GameController();
+        // 页面装配:PageRouter 装载主界面与各页(游戏场景由 showGame 懒装配)
         GameOptions gameOptions = new GameOptions();
         PageRouter pageRouter = new PageRouter(gameController, saveController, gameOptions);
         pageRouter.showMenu();

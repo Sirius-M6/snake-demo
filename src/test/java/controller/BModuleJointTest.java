@@ -25,7 +25,6 @@ import model.GameState;
 import model.Point;
 import model.SaveData;
 import model.Snake;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import util.InMemoryStore;
@@ -131,10 +130,9 @@ class BModuleJointTest {
         }
     }
 
-    // ===== 读档成功路径(骨架阻塞,暂缓) =====
+    // ===== 读档成功路径 =====
 
     @Test
-    @Disabled("待 A2 实现 MapCatalog.byId、C2 实现 Snake.body/step 后启用(与 SaveControllerTest.loadRestoresPausedState 同阻塞项)")
     @DisplayName("读:实况存档恢复后,各豆剩余寿命与存档一致、小豆哨兵保持")
     void loadRestoresBeansRemaining() {
         GameState state = newState();

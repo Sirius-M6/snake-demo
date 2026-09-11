@@ -16,7 +16,6 @@ import model.GameState;
 import model.Point;
 import model.SaveData;
 import model.Snake;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import util.InMemoryStore;
@@ -102,7 +101,6 @@ class SaveControllerTest {
     }
 
     @Test
-    @Disabled("待 A2 实现 MapCatalog.byId、C2 实现 Snake.body/step 后启用(联调阶段)")
     @DisplayName("读档成功:重建 PAUSED 局面")
     void loadRestoresPausedState() {
         GameState state = sampleState("pipe", 3);
