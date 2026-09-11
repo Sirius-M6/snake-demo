@@ -5,6 +5,8 @@ import config.BoardConfig;
 import config.UiConfig;
 import controller.GameController;
 import controller.GameEvents;
+import controller.SaveController;
+import javafx.animation.AnimationTimer;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -28,6 +30,7 @@ import javafx.scene.shape.StrokeLineCap;
 import model.Bean;
 import model.BeanType;
 import model.Direction;
+import model.GameMap;
 import model.GameOverReason;
 import model.GamePhase;
 import model.Point;
@@ -39,24 +42,31 @@ import view.fx.ScorePopup;
 import view.widgets.GameOverOverlay;
 import view.widgets.PauseOverlay;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 /**
  * 游戏主场景(工作量最大):三层 = HUD / Canvas 棋盘 / 特效与弹层;
  * 只收事件转发 + 只读渲染,规则零行;实现 GameEvents
- * 当前阶段:壳 + 单 Canvas 绘制管线(棋盘格 → 障碍 → 蛇 → 豆)+ HUD(得分/颠倒徽章)+ 键位转发(方向/空格/R/Esc)+ 暂停/结算弹层 + fx 特效接线(爆点/飘分/红闪/颠倒横幅),内部桩数据自足,不依赖真状态
+ * 当前阶段:渲染循环驱动(AnimationTimer 每帧 tick + 真状态渲染)+ 单 Canvas 绘制管线(棋盘格 → 障碍 → 蛇 → 豆)+ HUD(得分/颠倒徽章)+ 键位转发(方向/空格/R/Esc)+ 暂停/结算弹层 + fx 特效接线(爆点/飘分/红闪/颠倒横幅)
  */
 public class GameView extends BorderPane implements GameEvents {
 
     /** 棋盘画布(20×20 × 25px = 500×500) */
     private final Canvas boardCanvas;
 
-    /** 游戏控制器引用(键位转发已接入;节拍循环 tick 装配后使用) */
+    /** 游戏控制器引用(键位转发 + 渲染循环 tick 均已接入) */
     private final GameController controller;
+
+    /** 渲染循环(懒建单例;每帧 tick 推进 + render 真状态;startRenderLoop 幂等启动) */
+    private AnimationTimer renderLoop;
 
     /** 页面路由引用(Esc 结算后回主界面的导航出口;装配时 attachRouter 注入,未注入则 Esc 不导航) */
     private PageRouter router;
+
+    /** 存档控制器引用(「保存游戏」按钮出口;装配时 attachSave 注入,未注入则点击无动作) */
+    private SaveController saveController;
 
     /** 暂停弹层(遮罩 + 三选项卡片;BR-04;显隐随相位联动) */
     private final PauseOverlay pauseOverlay = new PauseOverlay();
@@ -87,26 +97,6 @@ public class GameView extends BorderPane implements GameEvents {
 
     /** 暂停图标右竖杠(悬停变色用) */
     private final Line pauseBarRight = new Line(6, 0, 6, 9);
-
-    // ===== 桩数据(不依赖真状态;接入 GameState 后由 render(state) 换数据源,绘制函数不动) =====
-
-    /** 桩蛇身:第 10 行 6 节,头在右侧(头 → 尾) */
-    private static final List<Point> STUB_SNAKE = List.of(
-            new Point(10, 9), new Point(10, 8), new Point(10, 7),
-            new Point(10, 6), new Point(10, 5), new Point(10, 4));
-
-    /** 桩障碍:两段竖墙(不占边界、不压桩蛇桩豆) */
-    private static final List<Point> STUB_OBSTACLES = List.of(
-            new Point(3, 5), new Point(4, 5), new Point(5, 5), new Point(6, 5),
-            new Point(14, 14), new Point(15, 14), new Point(16, 14));
-
-    /** 桩豆:五类各一颗,分布不重叠 */
-    private static final List<Bean> STUB_BEANS = List.of(
-            new Bean(BeanType.SMALL, new Point(4, 12), 0L),
-            new Bean(BeanType.BIG, new Point(13, 7), 0L),
-            new Bean(BeanType.GOLD, new Point(16, 3), 0L),
-            new Bean(BeanType.POISON, new Point(5, 16), 0L),
-            new Bean(BeanType.BIG_POISON, new Point(15, 10), 0L));
 
     /** 构造:游戏界面;top = HUD(得分左侧/debuff 徽章计分右侧/暂停按钮最右常驻;BR-60/61/05),center = 棋盘层(画布 → 特效 → 弹层 → 红闪);装配 controller 后安装全局键位转发并接线弹层与 HUD 按钮 */
     public GameView(GameController controller) {
@@ -213,6 +203,11 @@ public class GameView extends BorderPane implements GameEvents {
         this.router = router;
     }
 
+    /** 装配注入存档控制器(暂停弹层「保存游戏」出口,BR-06;不注入则点击无动作) */
+    public void attachSave(SaveController saveController) {
+        this.saveController = saveController;
+    }
+
     /** 安装全局键位采集:scene 挂载/卸载时注册/注销捕获过滤器(不受焦点影响;暂停弹窗打开时同样生效,BR-05) */
     private void installInput() {
         sceneProperty().addListener((obs, oldScene, newScene) -> {
@@ -275,32 +270,80 @@ public class GameView extends BorderPane implements GameEvents {
 
     // ===== 弹层接线(暂停/结算按钮 → controller;显隐见事件转发区) =====
 
-    /** 弹层与 HUD 按钮动作接线:「继续」/× → resume(BR-05);「终止游戏」→ 终局链路(BR-07);暂停按钮 → 与空格同语义(BR-05);「保存游戏」待 M2 接 SaveController(BR-06) */
+    /** 弹层与 HUD 按钮动作接线:「继续」/× → resume(BR-05);「终止游戏」→ 终局链路(BR-07);「保存游戏」→ saveTo 转发落盘(BR-06);暂停按钮 → 与空格同语义(BR-05) */
     private void wireOverlayActions() {
         pauseOverlay.setOnResume(controller::resume);
         pauseOverlay.setOnTerminate(() -> controller.finish(GameOverReason.ABANDONED));
+        pauseOverlay.setOnSave(() -> {
+            if (saveController != null) {
+                controller.saveTo(saveController); // controller 持真实 GameState;未注入存档出口则忽略
+            }
+        });
         pauseButton.setOnAction(e -> togglePause(controller.state())); // 暂停按钮:按只读相位路由,同空格
-        // TODO M2:「保存游戏」→ 装配 SaveController 后接 saveNow(state);当前按钮点击无动作
     }
 
-    /** 启动渲染循环:AnimationTimer 每帧 → GameController.tick(now) → render(state 快照);接入 controller 后填充 */
+    /** 启动渲染循环:AnimationTimer 每帧 → GameController.tick(now) → render(controller.state());幂等(重复调用只启一次),未装配 controller 时不启动 */
     public void startRenderLoop() {
-        // TODO 渲染循环:AnimationTimer 每帧 tick + render;现为壳,桩预览由外部手动调 render
+        if (renderLoop != null || controller == null) {
+            return;
+        }
+        renderLoop = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                long nowMs = System.currentTimeMillis(); // 与键位转发 realMs 同口径(handle 的 nanoTime 只作帧标识)
+                controller.tick(nowMs);
+                render(controller.state());
+            }
+        };
+        renderLoop.start();
+        render(controller.state()); // 立即首帧,不等下一脉冲
     }
 
     /**
      * 单 Canvas 重绘:棋盘格/障碍/蛇/豆(主题配色取自 Palette),不维护 400+ 网格节点;
-     * 桩阶段:固定管道主题 + 内部桩数据,state 参数暂不使用(接入真状态后按 state 取地图/蛇/豆)
+     * 数据源 = controller 只读快照;state 为 null(未开局/未装配)时只画默认主题空棋盘
      */
     public void render(ReadOnlyGameState state) {
         GraphicsContext g = boardCanvas.getGraphicsContext2D();
         g.clearRect(0, 0, boardCanvas.getWidth(), boardCanvas.getHeight());
-        // TODO 真状态:Palette p = Palette.ofMapId(state.map().id);数据源换 state 对应只读句柄
-        Palette p = Palette.of(Palette.Theme.PIPE);
+        if (state == null) {
+            drawCheckerboard(g, Palette.of(Palette.Theme.PIPE)); // 未开局:空棋盘兜底
+            return;
+        }
+        Palette p = paletteFor(state.map());
         drawCheckerboard(g, p);
-        drawObstacles(g, p, STUB_OBSTACLES);
-        drawSnake(g, p, STUB_SNAKE);
-        drawBeans(g, p, STUB_BEANS);
+        drawObstacles(g, p, obstacleCells(state.map()));
+        drawSnake(g, p, state.snake() != null ? state.snake().body() : List.of());
+        drawBeans(g, p, state.beans() != null ? state.beans() : List.of());
+        updateScore(state.score()); // BR-60:得分单一数据源 = 只读状态,每帧随渲染刷新
+    }
+
+    /** 地图 → 主题调色板:未注册主题的地图(初始/沙滩/田地)兜底管道主题,待 A 主题色补齐后放开 */
+    private Palette paletteFor(GameMap map) {
+        if (map != null) {
+            for (Palette.Theme theme : Palette.Theme.values()) {
+                if (theme.id.equalsIgnoreCase(map.id)) {
+                    return Palette.of(theme);
+                }
+            }
+        }
+        return Palette.of(Palette.Theme.PIPE);
+    }
+
+    /** 地图障碍格集合(全网格扫描 obstacleAt;20×20 每帧开销可忽略) */
+    private List<Point> obstacleCells(GameMap map) {
+        List<Point> cells = new ArrayList<>();
+        if (map != null) {
+            for (int r = 0; r < BoardConfig.ROWS; r++) {
+                for (int c = 0; c < BoardConfig.COLS; c++) {
+                    Point pt = new Point(r, c);
+                    if (map.obstacleAt(pt)) {
+                        cells.add(pt);
+                    }
+                }
+            }
+        }
+        return cells;
     }
 
     // ===== 绘制管线(四层按序;函数只吃纯数据,换数据源不换绘制代码) =====

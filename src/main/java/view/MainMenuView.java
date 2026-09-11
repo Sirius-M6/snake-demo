@@ -22,7 +22,10 @@ import javafx.scene.text.Text;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import model.GameOptions;
+import model.GameState;
 import view.widgets.PrimaryButton;
+
+import java.util.Optional;
 
 /**
  * 主界面:标题 + 五按钮(开始新游戏 / 继续游戏 / 游戏难度 / 地图 / 记录);
@@ -168,13 +171,18 @@ public class MainMenuView {
         pageRouter.showGame();
     }
 
-    /** 继续游戏:无存档 → 弹"无保存记录"提示;有存档 → 读档恢复,收起主界面并进入游戏场景 */
+    /** 继续游戏:无存档 → 弹"无保存记录"提示;有存档 → 读档重建并装载入 controller,收起主界面进入游戏场景(PAUSED 待继续) */
     private void continueGame() {
         if (!saveController.hasSave()) {
             showNoSaveDialog();
             return;
         }
-        saveController.loadAndResume();
+        Optional<GameState> loaded = saveController.loadAndResume();
+        if (loaded.isEmpty()) {
+            showNoSaveDialog(); // 存档损坏/地图失效:按无存档处理,停留主界面
+            return;
+        }
+        gameController.resumeFrom(loaded.get());
         closeMenu();
         pageRouter.showGame();
     }

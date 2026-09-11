@@ -6,6 +6,7 @@ import java.util.Set;
 
 import config.BeanConfig;
 import config.BoardConfig;
+import config.MapCatalog;
 import config.SpeedConfig;
 import model.Bean;
 import model.BeanType;
@@ -112,8 +113,10 @@ public class GameController {
 
         GameState state = new GameState();
         state.difficulty = options.getDifficulty();
-        state.map = options.getMap();
-        state.snake = new Snake(BoardConfig.snakeInit()); // 蛇置中:待 Snake 初始坐标入口定稿后接入 BoardConfig.snakeInit()
+        // 地图兜底:未选图(主菜单直接开局)取默认第一张(与地图页"空 = 默认第一张"口径一致),避免碰撞判定撞 null
+        GameMap map = options.getMap();
+        state.map = map != null ? map : MapCatalog.defaultMaps().get(0);
+        state.snake = new Snake(BoardConfig.snakeInit());
         state.setIntervalMs(SpeedConfig.initIntervalMs(options.getDifficulty()));
         state.setPhase(GamePhase.READY);
         gameState = state;
@@ -125,6 +128,34 @@ public class GameController {
 
         if (events != null) {
             events.onPhaseChanged(GamePhase.READY);
+        }
+    }
+
+    /**
+     * 装载读档重建的局面(继续游戏;restored 应为 PAUSED 快照):
+     * 时钟基准置零(下一帧 tick 重建,避免把读档前的真实时间差计入);
+     * 豆子调度按局重建但不 spawnInitial —— 场上豆子已随存档恢复(补刷计划不入档);
+     * 选项同步读档局的难度/地图(供 R 重开沿用);已有订阅者时通知 PAUSED(弹暂停层)
+     */
+    public void resumeFrom(GameState restored) {
+        if (restored == null) {
+            return;
+        }
+        restored.setPhase(GamePhase.PAUSED);
+        gameState = restored;
+        if (options == null) {
+            options = new GameOptions();
+        }
+        options.setDifficulty(restored.difficulty);
+        options.setMap(restored.map);
+        nextMoveAtMs = 0;
+        lastRealMs = 0; // 基准置零:下一帧 tick 重建
+        beanController = beanFactory.create(gameState, buildBoard(gameState.map), beanEvents); // 豆子来自存档,不再 spawnInitial
+        if (events != null) {
+            events.onPhaseChanged(GamePhase.PAUSED);
+            if (restored.debuffRemainingMs() > 0) {
+                events.onDebuffChanged(restored.debuffRemainingMs()); // HUD 徽章/横幅随读档恢复
+            }
         }
     }
 
@@ -224,6 +255,13 @@ public class GameController {
     /** view 订阅事件 */
     public void registerEvents(GameEvents events) {
         this.events = events;
+    }
+
+    /** 保存转发:装配方(view)在「保存游戏」时调用,由本类把真实 GameState 交 SaveController 落盘(BR-06);未开局忽略 */
+    public void saveTo(SaveController saveController) {
+        if (saveController != null && gameState != null) {
+            saveController.saveNow(gameState);
+        }
     }
 
     /** 私有流程 stepOnce():resolveTurn → wrap → 障碍/自身/豆子判定 → 效果结算/普通走格 */

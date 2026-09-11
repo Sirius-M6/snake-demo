@@ -32,8 +32,8 @@ public class InputController {
             input = input.inverted(); // debuff:仅颠倒本次玩家输入
         }
         Direction target = (input != null) ? input : lastDir; // 无输入:惯性直行,不取反
-        // 禁止直接掉头(对颠倒后的结果判定)
-        if (target != null && headDir.isOpposite(target)) {
+        // 禁止直接掉头(对颠倒后的结果判定);无输入且无历史(直启/读档继续首拍)→ 保持头方向,避免返回 null
+        if (target == null || headDir.isOpposite(target)) {
             target = headDir;
         }
         // 更新生效方向与时间戳
