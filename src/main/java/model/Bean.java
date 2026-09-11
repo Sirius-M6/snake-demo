@@ -1,7 +1,10 @@
 package model;
 
+import config.BeanConfig;
+
 /**
  * 场上豆实例:类型/位置/出生时刻
+ * 时限数值唯一来源:config.BeanConfig(model→config 引用随实现备案,BR-28)
  */
 public class Bean {
 
@@ -21,8 +24,12 @@ public class Bean {
         this.bornMs = bornMs;
     }
 
-    /** 在场剩余寿命(负=已超时);供时限判定与存档折算 */
+    /** 在场剩余寿命(负=已超时);正面豆 5 秒/负面豆 3 秒/小豆不限时(BR-28);供时限判定与存档折算 */
     public long remainingMs(long nowMs) {
-        return 0L;
+        long lifespan = BeanConfig.duration(type);
+        if (lifespan == Long.MAX_VALUE) {
+            return Long.MAX_VALUE; // 小豆不限时:哨兵值(存档语义同义,与 B2 对齐)
+        }
+        return bornMs + lifespan - nowMs;
     }
 }
