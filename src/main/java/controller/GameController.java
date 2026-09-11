@@ -56,7 +56,7 @@ public class GameController {
         GameState state = new GameState();
         state.difficulty = options.getDifficulty();
         state.map = options.getMap();
-        state.snake = new Snake(); // 蛇置中:待 Snake 初始坐标入口定稿后接入 BoardConfig.snakeInit()
+        state.snake = new Snake(BoardConfig.snakeInit()); // 蛇置中:待 Snake 初始坐标入口定稿后接入 BoardConfig.snakeInit()
         state.setIntervalMs(SpeedConfig.initIntervalMs(options.getDifficulty()));
         state.setPhase(GamePhase.READY);
         gameState = state;
