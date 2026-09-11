@@ -247,9 +247,28 @@ public class GameController {
         }
         beanController.onBeanEaten(hit, gameState.gameTimeMs());
 
+        // 通关判定:蛇身占满全部可通行格(无空格)→ CLEARED
+        if (gameState.snake().length() >= passableCellCount()) {
+            finish(GameOverReason.CLEARED);
+            return;
+        }
+
         if (gameState.score() < 0) {
             finish(GameOverReason.SCORE_NEGATIVE); // 扣分后总分为负 → 判负
         }
+    }
+
+    /** 可通行格数(= ROWS×COLS - 障碍数);Board 注入地图后替换为 countFree(蛇身) == 0 判定 */
+    private int passableCellCount() {
+        int count = 0;
+        for (int r = 0; r < BoardConfig.ROWS; r++) {
+            for (int c = 0; c < BoardConfig.COLS; c++) {
+                if (!gameState.map().obstacleAt(new Point(r, c))) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /** 私有流程 maybeSpeedUp():score 达下一档阈值 → intervalMs 下调,仅升档不回退 */
