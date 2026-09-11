@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import config.BeanConfig;
 import config.MapCatalog;
 import config.SaveConfig;
 import model.Bean;
@@ -62,7 +63,7 @@ public class SaveController {
         store.saveText(path, codec.encodeSave(data));
     }
 
-    /** 读档重建:蛇身/豆子 bornMs = gameTimeMs − remainingMs;恢复为 PAUSED 由玩家继续 [默认,UI 细节待 QA-11] */
+    /** 读档重建:蛇身/豆子 bornMs = gameTimeMs + 剩余寿命 − 该类型在场时限;恢复为 PAUSED 由玩家继续 [默认,UI 细节待 QA-11] */
     public Optional<GameState> loadAndResume() {
         Optional<String> text = store.loadText(SaveConfig.SAVE_DIR + File.separator + SaveConfig.SAVE_FILE);
         if (text.isEmpty()) {
@@ -98,11 +99,12 @@ public class SaveController {
             }
         }
         state.snake = snake;
-        // 豆子恢复:bornMs = 存档 gameTimeMs − 剩余寿命 ⇒ 在恢复后的时间轴上保持原剩余寿命
+        // 豆子恢复:bornMs = 存档 gameTimeMs + 剩余寿命 − 该类型在场时限 ⇒ 恢复后剩余寿命与存档值一致
+        //   (2026-09-11 修正:原式 gameTimeMs − 剩余寿命 会把剩余翻转为"时限 − 剩余";小豆哨兵(时限 MAX)折算后仍不限时)
         List<Bean> beans = new ArrayList<>();
         if (data.beans != null) {
             for (Bean b : data.beans) {
-                beans.add(new Bean(b.type, b.pos, data.gameTimeMs - b.bornMs));
+                beans.add(new Bean(b.type, b.pos, data.gameTimeMs + b.bornMs - BeanConfig.duration(b.type)));
             }
         }
         state.beans = beans;
