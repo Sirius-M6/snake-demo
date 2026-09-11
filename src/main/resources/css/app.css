@@ -11,7 +11,7 @@
 /* ===== HUD(棋盘上侧:得分 + 颠倒徽章;BR-60/61) ===== */
 
 .hud {
-    -fx-padding: 10 12 6 12;
+    -fx-padding: 1 12 1 12; /* 表头固定 25 px 高(UiConfig.HUD_H),上下仅留 1 px 边 */
     -fx-spacing: 12;
 }
 
@@ -24,6 +24,19 @@
     -fx-font-size: 14px;
     -fx-font-weight: bold;
     -fx-padding: 3 10 3 10;
+}
+
+/* 暂停按钮(HUD 右上角常驻;双竖杠图标色由 Palette 运行时提供,此处只定尺寸/内边距/手型) */
+.hud-pause {
+    -fx-background-color: transparent;
+    -fx-cursor: hand;
+    -fx-min-width: 24px;
+    -fx-min-height: 20px;
+    -fx-pref-width: 24px;
+    -fx-pref-height: 20px;
+    -fx-max-width: 24px;
+    -fx-max-height: 20px;
+    -fx-padding: 2;
 }
 
 /* ===== 弹层公共(PauseOverlay / GameOverOverlay) ===== */

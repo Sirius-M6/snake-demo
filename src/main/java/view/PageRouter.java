@@ -1,12 +1,15 @@
 package view;
 
+import config.UiConfig;
 import controller.GameController;
 import controller.SaveController;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
 import model.GameOptions;
 
 /**
- * 页面切换管理(单 Stage 场景路由);持有主界面/难度与地图选择页/记录页视图
- * (游戏场景视图待 showGame 填充时再持有)
+ * 页面切换管理(单 Stage 场景路由);持有主界面/难度与地图选择页/记录页/游戏场景视图
+ * (游戏场景视图由 showGame 懒装配)
  */
 public class PageRouter {
 
@@ -19,8 +22,18 @@ public class PageRouter {
     /** 记录页 */
     private final RecordsView recordsView;
 
+    /** 游戏主控制器(懒装配 GameView 与事件注册用) */
+    private final GameController gameController;
+
+    /** 游戏场景视图(工作量最大,进入游戏场景时才懒创建) */
+    private GameView gameView;
+
+    /** 游戏场景窗口(已显示时置前复用,避免重复开窗) */
+    private Stage gameStage;
+
     /** 构造:注入控制器与选择保持,装配主界面、选择页与记录页视图 */
     public PageRouter(GameController gameController, SaveController saveController, GameOptions gameOptions) {
+        this.gameController = gameController;
         this.mainMenuView = new MainMenuView(gameController, saveController, gameOptions, this);
         this.gameSetupView = new GameSetupView(gameController, gameOptions, this);
         this.recordsView = new RecordsView(saveController, this);
@@ -46,7 +59,30 @@ public class PageRouter {
         recordsView.showRecords();
     }
 
-    /** 进入游戏场景(启动 GameView 渲染循环) */
+    /**
+     * 显示游戏场景:懒装配 GameView(注入 controller、路由出口并注册事件)后启动新 Stage 显示;
+     * 已显示时置前复用;渲染循环未接入前先单帧渲染桩数据(同 PreviewApp,待 tick 接入后由 startRenderLoop 驱动)
+     */
     public void showGame() {
+        // 游戏场景已显示 → 置前复用,避免重复开窗
+        if (gameStage != null && gameStage.isShowing()) {
+            gameStage.toFront();
+            return;
+        }
+        if (gameView == null) {
+            gameView = new GameView(gameController);
+            gameView.attachRouter(this); // Esc 结算后回主界面的导航出口
+            gameController.registerEvents(gameView); // 事件订阅(特效/弹层联动)
+        }
+        Scene scene = new Scene(gameView, UiConfig.WINDOW_W, UiConfig.WINDOW_H); // 主舞台尺寸自 UiConfig:宽 = 棋盘宽 500,高 = 表头 25 + 棋盘 500
+        // 样式表挂载(HUD/弹层文字规格,同 PreviewApp 挂载点)
+        scene.getStylesheets().add(PageRouter.class.getResource("/css/app.css").toExternalForm());
+        gameStage = new Stage();
+        gameStage.setTitle("贪吃蛇");
+        gameStage.setResizable(false);
+        gameStage.setScene(scene);
+        gameStage.centerOnScreen();
+        gameStage.show();
+        gameView.render(null); // 单帧渲染桩数据(真状态接入后由渲染循环驱动)
     }
 }

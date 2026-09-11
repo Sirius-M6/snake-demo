@@ -161,20 +161,29 @@ public class MainMenuView {
         return circle;
     }
 
-    /** 开始新游戏:按当前已选难度/地图开局,进入游戏场景 */
+    /** 开始新游戏:按当前已选难度/地图开局,收起主界面后进入游戏场景 */
     private void startNewGame() {
         gameController.newGame(gameOptions);
+        closeMenu();
         pageRouter.showGame();
     }
 
-    /** 继续游戏:无存档 → 弹"无保存记录"提示;有存档 → 读档恢复并进入游戏场景 */
+    /** 继续游戏:无存档 → 弹"无保存记录"提示;有存档 → 读档恢复,收起主界面并进入游戏场景 */
     private void continueGame() {
         if (!saveController.hasSave()) {
             showNoSaveDialog();
             return;
         }
         saveController.loadAndResume();
+        closeMenu();
         pageRouter.showGame();
+    }
+
+    /** 收起主界面弹窗(进入游戏场景前关闭,避免模态窗口挡住游戏窗口的键位输入) */
+    private void closeMenu() {
+        if (menuStage != null) {
+            menuStage.close();
+        }
     }
 
     /** "无保存记录"提示弹窗(关闭后停留主界面) */

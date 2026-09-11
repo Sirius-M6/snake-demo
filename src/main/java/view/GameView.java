@@ -2,12 +2,15 @@ package view;
 
 import config.BeanConfig;
 import config.BoardConfig;
+import config.UiConfig;
 import controller.GameController;
 import controller.GameEvents;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Group;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.Background;
@@ -16,8 +19,11 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.CornerRadii;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Line;
 import javafx.scene.shape.StrokeLineCap;
 import model.Bean;
 import model.BeanType;
@@ -73,6 +79,15 @@ public class GameView extends BorderPane implements GameEvents {
     /** debuff 颠倒倒计时徽章(HUD 计分右侧;BR-61 仅 debuff 生效期显示) */
     private final Label debuffBadge = new Label();
 
+    /** 暂停按钮(HUD 右上角常驻;双竖杠图标;点击与空格同语义,BR-05) */
+    private final Button pauseButton = new Button();
+
+    /** 暂停图标左竖杠(悬停变色用) */
+    private final Line pauseBarLeft = new Line(1, 0, 1, 9);
+
+    /** 暂停图标右竖杠(悬停变色用) */
+    private final Line pauseBarRight = new Line(6, 0, 6, 9);
+
     // ===== 桩数据(不依赖真状态;接入 GameState 后由 render(state) 换数据源,绘制函数不动) =====
 
     /** 桩蛇身:第 10 行 6 节,头在右侧(头 → 尾) */
@@ -93,7 +108,7 @@ public class GameView extends BorderPane implements GameEvents {
             new Bean(BeanType.POISON, new Point(5, 16), 0L),
             new Bean(BeanType.BIG_POISON, new Point(15, 10), 0L));
 
-    /** 构造:游戏界面;top = HUD(得分左侧/debuff 徽章计分右侧;BR-60/61),center = 棋盘层(画布 → 特效 → 弹层 → 红闪);装配 controller 后安装全局键位转发并接线弹层按钮 */
+    /** 构造:游戏界面;top = HUD(得分左侧/debuff 徽章计分右侧/暂停按钮最右常驻;BR-60/61/05),center = 棋盘层(画布 → 特效 → 弹层 → 红闪);装配 controller 后安装全局键位转发并接线弹层与 HUD 按钮 */
     public GameView(GameController controller) {
         this.controller = controller;
         double size = BoardConfig.ROWS * BoardConfig.CELL_SIZE_PX;
@@ -127,7 +142,7 @@ public class GameView extends BorderPane implements GameEvents {
 
     // ===== HUD 层(棋盘上侧:得分 + debuff 颠倒倒计时徽章;BR-60/61,暂停按钮另项) =====
 
-    /** 构建 HUD:左 = 实时得分;计分右侧 = 颠倒徽章;配色随主题(Palette),字体/间距走 CSS(app.css) */
+    /** 构建 HUD:左 = 实时得分;计分右侧 = 颠倒徽章;最右 = 常驻暂停按钮(弹性占位);配色随主题(Palette),字体/间距走 CSS(app.css) */
     private HBox buildHud() {
         Palette p = Palette.of(Palette.Theme.PIPE); // TODO 真状态:随 render 同一主题取色
         scoreLabel.getStyleClass().add("hud-score");
@@ -139,10 +154,39 @@ public class GameView extends BorderPane implements GameEvents {
                 p.beanColor(BeanType.BIG_POISON), new CornerRadii(10), Insets.EMPTY)));
         debuffBadge.setVisible(false);
         debuffBadge.setManaged(false);
-        HBox hud = new HBox(scoreLabel, debuffBadge);
+        configurePauseButton(p);
+        Region spacer = new Region(); // 弹性占位:把暂停按钮推到表头最右(按钮常驻,不随相位显隐)
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox hud = new HBox(scoreLabel, debuffBadge, spacer, pauseButton);
         hud.getStyleClass().add("hud");
         hud.setAlignment(Pos.CENTER_LEFT);
+        // 表头区固定 UiConfig.HUD_H(25 px):BorderPane 顶栏不挤占棋盘,保证 500×500 画布完整露出
+        hud.setMinHeight(UiConfig.HUD_H);
+        hud.setPrefHeight(UiConfig.HUD_H);
+        hud.setMaxHeight(UiConfig.HUD_H);
         return hud;
+    }
+
+    /** 配置暂停按钮:双竖杠图标(形如 ⏸),图标色取主题蛇尾色、悬停加深;不抢键盘焦点(键位走全局过滤器);尺寸/手型见 CSS */
+    private void configurePauseButton(Palette p) {
+        Color base = p.snakeTail();
+        Color hover = base.darker();
+        for (Line bar : new Line[]{pauseBarLeft, pauseBarRight}) {
+            bar.setStroke(base);
+            bar.setStrokeWidth(2.2);
+            bar.setStrokeLineCap(StrokeLineCap.ROUND);
+        }
+        pauseButton.getStyleClass().add("hud-pause");
+        pauseButton.setGraphic(new Group(pauseBarLeft, pauseBarRight));
+        pauseButton.setFocusTraversable(false);
+        pauseButton.setOnMouseEntered(e -> {
+            pauseBarLeft.setStroke(hover);
+            pauseBarRight.setStroke(hover);
+        });
+        pauseButton.setOnMouseExited(e -> {
+            pauseBarLeft.setStroke(base);
+            pauseBarRight.setStroke(base);
+        });
     }
 
     /** 刷新得分显示(BR-60:吃豆立即更新;接线:渲染循环从只读状态读取当前分值) */
@@ -211,7 +255,7 @@ public class GameView extends BorderPane implements GameEvents {
         e.consume();
     }
 
-    /** 空格:暂停切换(BR-03/05;按只读相位路由:RUNNING → pause,PAUSED → resume,其余忽略) */
+    /** 空格/暂停按钮:暂停切换(BR-03/05;按只读相位路由:RUNNING → pause,PAUSED → resume,其余忽略;state==null 时直接返回不弹夹层,弹夹层条件见 onPhaseChanged 的 C1 联调备忘) */
     private void togglePause(ReadOnlyGameState state) {
         if (state == null) {
             return;
@@ -231,10 +275,11 @@ public class GameView extends BorderPane implements GameEvents {
 
     // ===== 弹层接线(暂停/结算按钮 → controller;显隐见事件转发区) =====
 
-    /** 弹层动作接线:「继续」/× → resume(BR-05);「终止游戏」→ 终局链路(BR-07);「保存游戏」待 M2 接 SaveController(BR-06) */
+    /** 弹层与 HUD 按钮动作接线:「继续」/× → resume(BR-05);「终止游戏」→ 终局链路(BR-07);暂停按钮 → 与空格同语义(BR-05);「保存游戏」待 M2 接 SaveController(BR-06) */
     private void wireOverlayActions() {
         pauseOverlay.setOnResume(controller::resume);
         pauseOverlay.setOnTerminate(() -> controller.finish(GameOverReason.ABANDONED));
+        pauseButton.setOnAction(e -> togglePause(controller.state())); // 暂停按钮:按只读相位路由,同空格
         // TODO M2:「保存游戏」→ 装配 SaveController 后接 saveNow(state);当前按钮点击无动作
     }
 
@@ -407,7 +452,26 @@ public class GameView extends BorderPane implements GameEvents {
         gameOverOverlay.showResult(reason, finalScore, 0);
     }
 
-    /** 状态机迁移 → 暂停弹层显隐(BR-04:PAUSED 显示;继续/复位/终局随相位收起,BR-05/07) */
+    /**
+     * 状态机迁移 → 暂停弹层显隐(BR-04:PAUSED 显示;继续/复位/终局随相位收起,BR-05/07)。
+     * 夹层显隐的唯一驱动点:view 不做本地显隐判断,只认 controller 发来的相位事件。
+     *
+     * ── 给 C1 的联调备忘:什么情况下才会弹出夹层 ──
+     * 入口(HUD 暂停按钮 / 空格键,均走 togglePause 相位路由):
+     *   state() 返回 null        → 直接忽略,永不弹夹层;
+     *   phase == RUNNING         → controller.pause();
+     *   phase == PAUSED          → controller.resume();
+     *   phase == READY/FINISHED  → 忽略。
+     * C1 实现 GameController 需同时满足三条,夹层才会弹出/收起:
+     *   1. state() 返回真实 ReadOnlyGameState(否则 togglePause 第一行就 return);
+     *   2. registerEvents(GameEvents) 真实保存订阅者(PageRouter.showGame 已调用注册);
+     *   3. 相位迁移后必须向订阅者发事件:
+     *      pause()  RUNNING→PAUSED  → 通知 onPhaseChanged(PAUSED)  → 弹夹层;
+     *      resume() PAUSED→RUNNING  → 通知 onPhaseChanged(RUNNING) → 收夹层;
+     *      newGame()/restart() phase=READY → 通知 READY → 收夹层(开局不弹);
+     *      finish() phase=FINISHED  → 通知 FINISHED → 收夹层(onGameOver 内另有幂等收起)。
+     * 夹层内按钮已接线:「继续」/× → resume(BR-05);「终止游戏」→ finish(ABANDONED)(BR-07)。
+     */
     @Override
     public void onPhaseChanged(GamePhase phase) {
         if (phase == GamePhase.PAUSED) {
